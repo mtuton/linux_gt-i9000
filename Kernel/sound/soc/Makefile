@@ -1,3 +1,4 @@
+subdir-ccflags-y += -O2
 snd-soc-core-objs := soc-core.o soc-dapm.o soc-jack.o soc-cache.o
 
 obj-$(CONFIG_SND_SOC)	+= snd-soc-core.o

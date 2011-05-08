@@ -1,4 +1,4 @@
-/*
+﻿/*
  * wm8994.c  --  WM8994 ALSA Soc Audio driver
  *
  * Copyright 2010 Wolfson Microelectronics PLC.
@@ -36,6 +36,9 @@
 #include <plat/map-base.h>
 #include <mach/regs-clock.h> 
 #include "wm8994.h"
+#ifdef CONFIG_SND_VOODOO
+#include "wm8994_voodoo.h"
+#endif
 
 #define WM8994_VERSION "0.1"
 #define SUBJECT "wm8994.c"
@@ -210,6 +213,10 @@ int wm8994_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int val
 	 *   D8...D0 register data
 	 */
 
+#ifdef CONFIG_SND_VOODOO
+	value = voodoo_hook_wm8994_write(codec, reg, value);
+#endif
+
 #if defined(CONFIG_ARIES_NTT)
 	//ssong100903. WM8994 Applications Issue Report CE000681 Changing digital path or clock enable bits when active may result in no sound output 
 	if(reg == 0x5) value |= 0x3303;
@@ -286,6 +293,9 @@ static int wm899x_inpga_put_volsw_vu(struct snd_kcontrol *kcontrol,
 //------------------------------------------------
 // Implementation of sound path
 //------------------------------------------------
+#if 1 // SpeedMod: For 3-pole headset calling
+extern short int get_headset_status(void);              // For ear-jack control(MIC-Bias)
+#endif // SpeedMod: For 3-pole headset calling
 #define MAX_VOICECALL_PATH 4
 static const char *playback_path[] = { "OFF", "RCV", "SPK", "HP", "BT", "DUAL", "RING_SPK", "RING_HP", "RING_DUAL", "EXTRA_DOCK_SPEAKER", "TV_OUT"};
 static const char *voicecall_path[] = { "OFF", "RCV", "SPK", "HP", "BT", "HP_3POLE",};
@@ -460,6 +470,14 @@ static int wm8994_set_call_path(struct snd_kcontrol *kcontrol,
 
 	// Get path value
 	int path_num = ucontrol->value.integer.value[0];	
+#if 1 // SpeedMod: For 3-pole headset
+  int headset_state = get_headset_status(); 
+ 
+  if(path_num == 1 && headset_state == 0x1 << 1) 
+  { 
+    path_num = 5; //force 3pole when headset is 3pole headphone 
+  } 
+#endif // SpeedMod: For 3-pole headset
 	
 	if(strcmp( mc->texts[path_num], voicecall_path[path_num]) )
 	{		
@@ -2034,6 +2052,10 @@ static int wm8994_pcm_probe(struct platform_device *pdev)
         }
 #else
                 /* Add other interfaces here */
+#endif
+
+#ifdef CONFIG_SND_VOODOO
+	voodoo_hook_wm8994_pcm_probe(codec);
 #endif
         return ret;
 }

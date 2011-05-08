@@ -1,4 +1,4 @@
-/*
+﻿/*
  * wm8994_aries.c  --  WM8994 ALSA Soc Audio driver related Aries
  *
  *  Copyright (C) 2010 Samsung Electronics.
@@ -20,6 +20,9 @@
 #include <mach/regs-clock.h> 
 #include <mach/gpio.h> 
 #include "wm8994.h"
+#ifdef CONFIG_SND_VOODOO
+#include "wm8994_voodoo.h"
+#endif
 
 //------------------------------------------------
 //		Debug Feature
@@ -51,7 +54,7 @@
 // Normal
 // Speaker
 #define TUNING_MP3_SPKL_VOL		0x3E		// 26h
-#define TUNING_MP3_CLASSD_VOL		0x5		// 25h
+#define TUNING_MP3_CLASSD_VOL		0x6 //0x5		// 25h
 
 // Headset
 #if defined(CONFIG_ARIES_LATONA)
@@ -106,15 +109,15 @@
 // Receiver
 #define TUNING_RCV_OUTMIX5_VOL		0x0		// 31h
 #define TUNING_RCV_OUTMIX6_VOL 		0x0		// 32h
-#define TUNING_RCV_OPGAL_VOL		0x3D		// 20h
-#define TUNING_RCV_OPGAR_VOL		0x3D		// 21h
+#define TUNING_RCV_OPGAL_VOL		0x3F //0x3D		// 20h
+#define TUNING_RCV_OPGAR_VOL		0x3F //0x3D		// 21h
 #define TUNING_HPOUT2_VOL		0x0		// 1Fh
 
 // Call Main MIC
 #if defined(CONFIG_ARIES_LATONA)
 #define TUNING_CALL_RCV_INPUTMIX_VOL	0x0E		// 18h //[0x16 -> 0x0E] LATONA1 HW request (10/7)
 #else
-#define TUNING_CALL_RCV_INPUTMIX_VOL	0x16		// 18h
+#define TUNING_CALL_RCV_INPUTMIX_VOL	0x14 //0x16		// 18h
 #endif  //CONFIG_ARIES_LATONA
 #define TUNING_CALL_RCV_MIXER_VOL	WM8994_IN1L_MIXINL_VOL	// 29h 30dB
 
@@ -178,8 +181,8 @@
 #define TUNING_DUAL_DAC1R_RADIO_VOL		0x70		// 403h
 
 // FM Radio Input
-#define TUNING_FMRADIO_EAR_INPUTMIXL_VOL	0x0B		// 19h
-#define TUNING_FMRADIO_EAR_INPUTMIXR_VOL	0x0B		// 1Bh
+#define TUNING_FMRADIO_EAR_INPUTMIXL_VOL	0x0F //0x0B		// 19h
+#define TUNING_FMRADIO_EAR_INPUTMIXR_VOL	0x0F //0x0B		// 1Bh
 
 #define TUNING_FMRADIO_SPK_INPUTMIXL_VOL	0x0F		// 19h
 #define TUNING_FMRADIO_SPK_INPUTMIXR_VOL	0x0F		// 1Bh
@@ -190,7 +193,7 @@
 #if defined(CONFIG_ARIES_LATONA)
 #define TUNING_RECORD_MAIN_INPUTLINE_VOL	0x19		// 18h   //[0x18 -> 0x19] LATONA1 HW request (10/7)
 #else
-#define TUNING_RECORD_MAIN_INPUTLINE_VOL	0x18		// 18h
+#define TUNING_RECORD_MAIN_INPUTLINE_VOL	0x12 //0x18		// 18h
 #endif  //CONFIG_ARIES_LATONA
 #define TUNING_RECORD_MAIN_AIF1ADCL_VOL	0xC0		// 400h
 #define TUNING_RECORD_MAIN_AIF1ADCR_VOL	0xC0		// 401h
@@ -1155,6 +1158,10 @@ void wm8994_record_main_mic(struct snd_soc_codec *codec)
 			val |= (WM8994_AIF1ADC1_VU | TUNING_RECORD_MAIN_AIF1ADCR_VOL); // 0db
 		wm8994_write(codec, WM8994_AIF1_ADC1_RIGHT_VOLUME, val);
 	}
+
+#ifdef CONFIG_SND_VOODOO_RECORD_PRESETS
+	voodoo_hook_record_main_mic();
+#endif
 
 	val = wm8994_read(codec,WM8994_POWER_MANAGEMENT_4 );
 	val &= ~(WM8994_ADCL_ENA_MASK |WM8994_AIF1ADC1L_ENA_MASK  );
@@ -2493,7 +2500,12 @@ void wm8994_set_voicecall_headphone(struct snd_soc_codec *codec)
 	wm8994_set_voicecall_common_setting(codec);
 	
 	/*Digital Path Enables and Unmutes*/	
-	if(wm8994->hw_version == 3)	// H/W Rev D
+	wm8994_write(codec,0x601, 0x0005 );   
+	wm8994_write(codec,0x602, 0x0005 );   
+	wm8994_write(codec,0x603, 0x000C );   
+	// Tx -> AIF2 Path
+	wm8994_write(codec, WM8994_DAC2_LEFT_MIXER_ROUTING, WM8994_ADC1_TO_DAC2L);	
+	/*if(wm8994->hw_version == 3)	// H/W Rev D
 	{
 		wm8994_write(codec, WM8994_DAC2_LEFT_MIXER_ROUTING, WM8994_ADC2_TO_DAC2L);
 		wm8994_write(codec,WM8994_DAC2_MIXER_VOLUMES, 0x0180);
@@ -2504,13 +2516,15 @@ void wm8994_set_voicecall_headphone(struct snd_soc_codec *codec)
 		wm8994_write(codec,WM8994_DAC2_MIXER_VOLUMES, 0x000C);  
 		wm8994_write(codec, WM8994_DAC2_LEFT_MIXER_ROUTING, WM8994_ADC1_TO_DAC2L);
 		wm8994_write(codec,WM8994_SIDETONE, 0x01C1);
-	}
+	}*/
+	
 	/*Analogue Input Configuration*/
-	val = wm8994_read(codec,WM8994_POWER_MANAGEMENT_2);	
+	/*val = wm8994_read(codec,WM8994_POWER_MANAGEMENT_2);	
 	val &= ~(WM8994_TSHUT_ENA_MASK | WM8994_TSHUT_OPDIS_MASK | WM8994_MIXINR_ENA_MASK | WM8994_IN1R_ENA_MASK);
 	val |= (WM8994_TSHUT_ENA | WM8994_TSHUT_OPDIS | WM8994_MIXINL_ENA | WM8994_IN1L_ENA);
-	wm8994_write(codec,WM8994_POWER_MANAGEMENT_2, 0x6110);
-	
+	wm8994_write(codec,WM8994_POWER_MANAGEMENT_2, 0x6110);*/ //SpeedMod: Should be IN1L not IN1R
+	/*Analogue Input Configuration*/
+	wm8994_write(codec,0x02, 0x6240 );	
 	wm8994_write(codec, WM8994_INPUT_MIXER_2, WM8994_IN1LP_TO_IN1L | WM8994_IN1LN_TO_IN1L); 	// differential(3) or single ended(1)
 
 	if(!wm8994->testmode_config_flag)
@@ -2523,7 +2537,7 @@ void wm8994_set_voicecall_headphone(struct snd_soc_codec *codec)
 	
 		val = wm8994_read(codec, WM8994_LEFT_LINE_INPUT_1_2_VOLUME );	
 		val &= ~(WM8994_IN1L_MUTE_MASK | WM8994_IN1L_VOL_MASK);	// Unmute IN1L
-		val |= (WM8994_IN1L_VU | TUNING_CALL_SPK_INPUTMIX_VOL);
+		val |= (WM8994_IN1L_VU | TUNING_CALL_RCV_INPUTMIX_VOL); // SpeedMod: Use receiver mic gain //val |= (WM8994_IN1L_VU | TUNING_CALL_SPK_INPUTMIX_VOL);
 		wm8994_write(codec, WM8994_LEFT_LINE_INPUT_1_2_VOLUME , val);
 	}
 
@@ -2532,16 +2546,19 @@ void wm8994_set_voicecall_headphone(struct snd_soc_codec *codec)
 	{
 		val = wm8994_read(codec, WM8994_LEFT_OPGA_VOLUME);
 		val &= ~(WM8994_MIXOUTL_MUTE_N_MASK | WM8994_MIXOUTL_VOL_MASK);
-		val |= (WM8994_MIXOUT_VU | WM8994_MIXOUTL_MUTE_N | TUNING_CALL_OPGAL_VOL);
+		//val |= (WM8994_MIXOUT_VU | WM8994_MIXOUTL_MUTE_N | TUNING_CALL_OPGAL_VOL);
+		val |= (WM8994_MIXOUT_VU | WM8994_MIXOUTL_MUTE_N | 0x3F); //+6dB
 		wm8994_write(codec,WM8994_LEFT_OPGA_VOLUME, val );
 	
 		val = wm8994_read(codec, WM8994_RIGHT_OPGA_VOLUME);
 		val &= ~(WM8994_MIXOUTR_MUTE_N_MASK | WM8994_MIXOUTR_VOL_MASK);
-		val |= (WM8994_MIXOUT_VU | WM8994_MIXOUTR_MUTE_N | TUNING_CALL_OPGAR_VOL);
+		//val |= (WM8994_MIXOUT_VU | WM8994_MIXOUTR_MUTE_N | TUNING_CALL_OPGAR_VOL);
+		val |= (WM8994_MIXOUT_VU | WM8994_MIXOUTR_MUTE_N | 0x3F); //+6dB
 		wm8994_write(codec,WM8994_RIGHT_OPGA_VOLUME, val );
 	}
 		
-	wm8994_write(codec,WM8994_POWER_MANAGEMENT_4, 0x2001 );   
+	//wm8994_write(codec,WM8994_POWER_MANAGEMENT_4, 0x2001 );   
+	wm8994_write(codec, WM8994_POWER_MANAGEMENT_4, WM8994_AIF2ADCL_ENA | WM8994_ADCL_ENA);
 	
 	val = wm8994_read(codec, 0x102  ); 	
 	val &= ~(0x0003);
