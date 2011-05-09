@@ -5,15 +5,23 @@ unsigned int __read_mostly sysctl_sched_autogroup_enabled = 1;
 struct autogroup {
     struct kref        kref;
     struct task_group    *tg;
+    unsigned long	id;
 };
 
 static struct autogroup autogroup_default;
+static atomic_t autogroup_seq_nr;
 
 static void autogroup_init(struct task_struct *init_task)
 {
     autogroup_default.tg = &init_task_group;
+    root_task_group.autogroup = &autogroup_default;
     kref_init(&autogroup_default.kref);
     init_task->signal->autogroup = &autogroup_default;
+}
+
+static inline void autogroup_free(struct task_group *tg)
+{
+    kfree(tg->autogroup);
 }
 
 static inline void autogroup_destroy(struct kref *kref)
@@ -39,16 +47,29 @@ static inline struct autogroup *autogroup_kref_get(struct autogroup *ag)
 static inline struct autogroup *autogroup_create(void)
 {
     struct autogroup *ag = kmalloc(sizeof(*ag), GFP_KERNEL);
+    struct task_group *tg;
 
     if (!ag)
         goto out_fail;
 
-    ag->tg = sched_create_group(&init_task_group);
+    /* ag->tg = sched_create_group(&init_task_group); */
+    tg = sched_create_group(&root_task_group);
+
+    if (IS_ERR(tg))
+    	goto out_free;
+
     kref_init(&ag->kref);
+    ag->id = atomic_inc_return(&autogroup_seq_nr);
+    ag->tg = tg;
+    tg->autogroup = ag;
 
-    if (!(IS_ERR(ag->tg)))
-        return ag;
+    /* if (!(IS_ERR(ag->tg)))
+        return ag; */
 
+    return ag;
+
+out_free:
+    kfree(ag);
 out_fail:
     if (ag) {
         kfree(ag);
@@ -79,6 +100,32 @@ autogroup_move_group(struct task_struct *p, struct autogroup *ag)
 {
     struct autogroup *prev;
     struct task_struct *t;
+    unsigned long flags;
+
+    if (unlikely(!lock_task_sighand(p, &flags))) {
+        WARN_ON(1);
+        return;
+    }
+
+    prev = p->signal->autogroup;
+    if (prev == ag) {
+        unlock_task_sighand(p, &flags);
+        return;
+    }
+
+    p->signal->autogroup = autogroup_kref_get(ag);
+
+    t = p;
+    do {
+        sched_move_task(t);
+    } while_each_thread(p, t);
+
+    unlock_task_sighand(p, &flags);
+    autogroup_kref_put(prev);
+
+/*
+    struct autogroup *prev;
+    struct task_struct *t;
     struct rq *rq;
     unsigned long flags;
 
@@ -100,6 +147,7 @@ autogroup_move_group(struct task_struct *p, struct autogroup *ag)
     rcu_read_unlock();
 
     autogroup_kref_put(prev);
+*/
 }
 
 void sched_autogroup_create_attach(struct task_struct *p)
@@ -119,10 +167,12 @@ void sched_autogroup_detach(struct task_struct *p)
 }
 EXPORT_SYMBOL(sched_autogroup_detach);
 
+/*
 void sched_autogroup_fork(struct signal_struct *sig)
 {
     sig->autogroup = autogroup_kref_get(current->signal->autogroup);
 }
+*/
 
 void sched_autogroup_exit(struct signal_struct *sig)
 {
@@ -134,6 +184,33 @@ static int __init setup_autogroup(char *str)
     sysctl_sched_autogroup_enabled = 0;
 
     return 1;
+}
+
+static struct autogroup *autogroup_task_get(struct task_struct *p)
+{
+    struct autogroup *ag;
+    unsigned long flags;
+
+    if (!lock_task_sighand(p, &flags))
+        return autogroup_kref_get(&autogroup_default);
+
+    ag = autogroup_kref_get(p->signal->autogroup);
+    unlock_task_sighand(p, &flags);
+
+    return ag;
+}
+
+void sched_autogroup_fork(struct signal_struct *sig)
+{
+    sig->autogroup = autogroup_task_get(current);
+}
+
+void proc_sched_autogroup_show_task(struct task_struct *p, struct seq_file *m)
+{
+    struct autogroup *ag = autogroup_task_get(p);
+
+    seq_printf(m, "/autogroup-%ld\n", ag->id);
+    autogroup_kref_put(ag);
 }
 
 __setup("noautogroup", setup_autogroup);

@@ -276,6 +276,9 @@ struct task_group {
 	struct task_group *parent;
 	struct list_head siblings;
 	struct list_head children;
+
+	/* Mic - unsure if there's meant to be an #ifdef here? */
+	struct autogroup *autogroup;
 };
 
 #ifdef CONFIG_USER_SCHED
@@ -9978,6 +9981,7 @@ static void free_sched_group(struct task_group *tg)
 {
 	free_fair_sched_group(tg);
 	free_rt_sched_group(tg);
+	autogroup_free(tg);
 	kfree(tg);
 }
 
