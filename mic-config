@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Sun May  1 17:19:59 2011
+# Thu May 12 18:29:49 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -68,6 +68,7 @@ CONFIG_CGROUP_FREEZER=y
 CONFIG_CGROUP_CPUACCT=y
 CONFIG_RESOURCE_COUNTERS=y
 # CONFIG_CGROUP_MEM_RES_CTLR is not set
+CONFIG_SCHED_AUTOGROUP=y
 # CONFIG_SYSFS_DEPRECATED_V2 is not set
 # CONFIG_RELAY is not set
 CONFIG_NAMESPACES=y
