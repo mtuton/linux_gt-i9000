@@ -277,8 +277,9 @@ struct task_group {
 	struct list_head siblings;
 	struct list_head children;
 
-	/* Mic - unsure if there's meant to be an #ifdef here? */
+#define CONFIG_SCHED_AUTOGROUP
 	struct autogroup *autogroup;
+#endif
 };
 
 #ifdef CONFIG_USER_SCHED

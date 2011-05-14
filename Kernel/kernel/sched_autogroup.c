@@ -13,7 +13,7 @@ static atomic_t autogroup_seq_nr;
 
 static void autogroup_init(struct task_struct *init_task)
 {
-    autogroup_default.tg = &init_task_group;
+    autogroup_default.tg = &root_task_group;
     root_task_group.autogroup = &autogroup_default;
     kref_init(&autogroup_default.kref);
     init_task->signal->autogroup = &autogroup_default;
@@ -52,7 +52,6 @@ static inline struct autogroup *autogroup_create(void)
     if (!ag)
         goto out_fail;
 
-    /* ag->tg = sched_create_group(&init_task_group); */
     tg = sched_create_group(&root_task_group);
 
     if (IS_ERR(tg))
@@ -122,32 +121,6 @@ autogroup_move_group(struct task_struct *p, struct autogroup *ag)
 
     unlock_task_sighand(p, &flags);
     autogroup_kref_put(prev);
-
-/*
-    struct autogroup *prev;
-    struct task_struct *t;
-    struct rq *rq;
-    unsigned long flags;
-
-    rq = task_rq_lock(p, &flags);
-    prev = p->signal->autogroup;
-    if (prev == ag) {
-        task_rq_unlock(rq, &flags);
-        return;
-    }
-
-    p->signal->autogroup = autogroup_kref_get(ag);
-    __sched_move_task(p, rq);
-    task_rq_unlock(rq, &flags);
-
-    rcu_read_lock();
-    list_for_each_entry_rcu(t, &p->thread_group, thread_group) {
-        sched_move_task(t);
-    }
-    rcu_read_unlock();
-
-    autogroup_kref_put(prev);
-*/
 }
 
 void sched_autogroup_create_attach(struct task_struct *p)
@@ -166,13 +139,6 @@ void sched_autogroup_detach(struct task_struct *p)
     autogroup_move_group(p, &autogroup_default);
 }
 EXPORT_SYMBOL(sched_autogroup_detach);
-
-/*
-void sched_autogroup_fork(struct signal_struct *sig)
-{
-    sig->autogroup = autogroup_kref_get(current->signal->autogroup);
-}
-*/
 
 void sched_autogroup_exit(struct signal_struct *sig)
 {
@@ -214,4 +180,4 @@ void proc_sched_autogroup_show_task(struct task_struct *p, struct seq_file *m)
 }
 
 __setup("noautogroup", setup_autogroup);
-#endif
+#endif /* CONFIG_SCHED_AUTOGROUP */
