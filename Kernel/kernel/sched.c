@@ -277,7 +277,7 @@ struct task_group {
 	struct list_head siblings;
 	struct list_head children;
 
-#define CONFIG_SCHED_AUTOGROUP
+#ifdef CONFIG_SCHED_AUTOGROUP
 	struct autogroup *autogroup;
 #endif
 };
