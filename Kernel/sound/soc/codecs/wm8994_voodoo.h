@@ -36,7 +36,7 @@ void voodoo_hook_wm8994_pcm_remove(void);
 void voodoo_hook_record_main_mic(void);
 void voodoo_hook_playback_speaker(void);
 
-void load_default_eq_values(void);
+void load_current_eq_values(void);
 void apply_saturation_prevention_drc(void);
 
 void update_hpvol(void);

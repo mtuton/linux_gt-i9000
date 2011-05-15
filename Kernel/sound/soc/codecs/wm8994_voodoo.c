@@ -86,7 +86,16 @@ unsigned int digital_headroom = 0;
 
 bool headphone_eq = true;
 short eq_gains[5] = { 0, 0, 0, 0, 0 };
-unsigned int eq_freq_values[3+4+4+4+3];
+short eq_bands[5] = { 3, 4, 4, 4, 3 };
+char eq_band_coef_names[][2] = { "A", "B", "C", "PG" };
+
+unsigned int eq_band_values[5][4] = {
+	{0x0FCA, 0x0400, 0x00D8},
+	{0x1EB5, 0xF145, 0x0B75, 0x01C5},
+	{0x1C58, 0xF373, 0x0A54, 0x0558},
+	{0x168E, 0xF829, 0x07AD, 0x1103},
+	{0x0564, 0x0559, 0x4000}
+};
 
 // keep here a pointer to the codec structure
 struct snd_soc_codec *codec;
@@ -689,8 +698,9 @@ void update_headphone_eq(bool with_mute)
 	int gains_1;
 	int gains_2;
 	int i;
+	int j;
+	int k = 0;
 	int first_reg = WM8994_AIF1_DAC1_EQ_BAND_1_A;
-	int size = ARRAY_SIZE(eq_freq_values);
 
 	DECLARE_WM8994(codec);
 
@@ -700,9 +710,9 @@ void update_headphone_eq(bool with_mute)
 	      && !(wm8994->codec_state & CALL_ACTIVE)
 	      && (wm8994->rec_path == MIC_OFF)
 	    ) && !is_path(RADIO_HEADPHONES)) {
-		// dont apply the EQ
+		// don't apply the EQ
 		return;
-	    }
+	}
 
 	if (headphone_eq)
 		apply_saturation_prevention_drc();
@@ -720,18 +730,35 @@ void update_headphone_eq(bool with_mute)
 	wm8994_write(codec, WM8994_AIF1_DAC1_EQ_GAINS_1, gains_1);
 	wm8994_write(codec, WM8994_AIF1_DAC1_EQ_GAINS_2, gains_2);
 
-	for (i = 0; i < size; i++)
-		wm8994_write(codec, first_reg + i, eq_freq_values[i]);
+	// don't send EQ configuration if its not enabled
+	if (!headphone_eq)
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(eq_band_values); i++) {
+#ifdef CONFIG_SND_VOODOO_DEBUG
+		printk("Voodoo sound: send EQ Band %d\n", i + 1);
+#endif
+		for (j = 0; j < eq_bands[i]; j++) {
+			wm8994_write(codec,
+				     first_reg + k, eq_band_values[i][j]);
+			k++;
+		}
+	}
 }
 
-void load_default_eq_values()
+void load_current_eq_values()
 {
 	int i;
+	int j;
+	int k = 0;
 	int first_reg = WM8994_AIF1_DAC1_EQ_BAND_1_A;
-	int size = ARRAY_SIZE(eq_freq_values);
 
-	for (i = 0; i < size; i++)
-		eq_freq_values[i] = wm8994_read(codec, first_reg + i);
+	for (i = 0; i < ARRAY_SIZE(eq_band_values); i++)
+		for (j = 0; j < eq_bands[i]; j++) {
+			eq_band_values[i][j] =
+			    wm8994_read(codec, first_reg + k);
+			k++;
+		}
 }
 
 void apply_saturation_prevention_drc()
@@ -906,38 +933,65 @@ DECLARE_EQ_GAIN_STORE(4);
 DECLARE_EQ_GAIN_SHOW(5);
 DECLARE_EQ_GAIN_STORE(5);
 
-static ssize_t headphone_eq_freq_values_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+static ssize_t headphone_eq_bands_values_show(struct device *dev,
+					      struct device_attribute *attr,
+					      char *buf)
 {
 	int i;
+	int j;
+	int k = 0;
 	int first_reg = WM8994_AIF1_DAC1_EQ_BAND_1_A;
-	int size = ARRAY_SIZE(eq_freq_values);
+	int bands_size = ARRAY_SIZE(eq_bands);
+	char *name;
 
-	for (i = 0; i < size; i++)
-		sprintf(buf, "%s0x%X 0x%04X\n", buf, first_reg + i,
-			wm8994_read(codec, first_reg + i));
+	for (i = 0; i < bands_size; i++)
+		for (j = 0; j < eq_bands[i]; j++) {
+
+			// display 3-coef bands properly (hi & lo shelf)
+			if (j + 1 == eq_bands[i])
+				name = eq_band_coef_names[3];
+			else
+				name = eq_band_coef_names[j];
+
+			sprintf(buf, "%s%d %s 0x%04X\n", buf,
+				i + 1, name,
+				wm8994_read(codec, first_reg + k));
+			k++;
+		}
 
 	return sprintf(buf, "%s", buf);
-
-
 }
 
-static ssize_t headphone_eq_freq_values_store(struct device *dev,
-				      struct device_attribute *attr,
-				      const char *buf, size_t size)
+static ssize_t headphone_eq_bands_values_store(struct device *dev,
+					       struct device_attribute *attr,
+					       const char *buf, size_t size)
 {
-	int i = 0;
-	int first_reg = WM8994_AIF1_DAC1_EQ_BAND_1_A;
-	int commands_size = ARRAY_SIZE(eq_freq_values);
+	int i;
 	short unsigned int val;
+	short unsigned int band;
+	char coef_name[2];
 	unsigned int bytes_read = 0;
 
-	while (sscanf(buf, "%hx%n", &val, &bytes_read) == 1) {
-		if (i >= commands_size)
-			break;
+	while (sscanf(buf, "%hd %s %hx%n",
+		      &band, coef_name, &val, &bytes_read) == 3) {
+
+		for (i = 0; i < ARRAY_SIZE(eq_band_coef_names); i++) {
+			if (strcmp(eq_band_coef_names[i], coef_name)
+			    && band >=1 && band <= 5) {
+#ifdef CONFIG_SND_VOODOO_DEBUG
+				printk("Voodoo sound: read EQ from sysfs: "
+				       "EQ Band %hd %s: 0x%04X\n",
+				       band, coef_name, val);
+#endif
+				if (eq_bands[i] == 3 && i == 3)
+					eq_band_values[band-1][3] = val;
+				else
+					eq_band_values[band-1][i] = val;
+
+				break;
+			}
+		}
 		buf += bytes_read;
-		wm8994_write(codec, first_reg + i, val);
-		i++;
 	}
 	return size;
 }
@@ -1146,9 +1200,9 @@ static DEVICE_ATTR(headphone_eq_b5_gain, S_IRUGO | S_IWUGO,
 		   headphone_eq_b5_gain_show,
 		   headphone_eq_b5_gain_store);
 
-static DEVICE_ATTR(headphone_eq_freq_values, S_IRUGO | S_IWUGO,
-		   headphone_eq_freq_values_show,
-		   headphone_eq_freq_values_store);
+static DEVICE_ATTR(headphone_eq_bands_values, S_IRUGO | S_IWUGO,
+		   headphone_eq_bands_values_show,
+		   headphone_eq_bands_values_store);
 
 static DEVICE_ATTR(mono_downmix, S_IRUGO | S_IWUGO,
 		   mono_downmix_show,
@@ -1206,7 +1260,7 @@ static struct attribute *voodoo_sound_attributes[] = {
 	&dev_attr_headphone_eq_b3_gain.attr,
 	&dev_attr_headphone_eq_b4_gain.attr,
 	&dev_attr_headphone_eq_b5_gain.attr,
-	&dev_attr_headphone_eq_freq_values.attr,
+	&dev_attr_headphone_eq_bands_values.attr,
 	&dev_attr_mono_downmix.attr,
 #ifdef CONFIG_SND_VOODOO_DEBUG
 	&dev_attr_wm8994_register_dump.attr,
@@ -1487,6 +1541,6 @@ void voodoo_hook_wm8994_pcm_probe(struct snd_soc_codec *codec_)
 	// make a copy of the codec pointer
 	codec = codec_;
 
-	// initialize eq_freq_values[] from default codec EQ values
-	load_default_eq_values();
+	// initialize eq_band_values[] from default codec EQ values
+	load_current_eq_values();
 }
