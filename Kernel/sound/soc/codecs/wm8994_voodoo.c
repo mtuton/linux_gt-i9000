@@ -162,6 +162,7 @@ bool debug_log(short unsigned int level)
 	return false;
 }
 
+#ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 int hpvol(int channel)
 {
 	int hpvol;
@@ -186,7 +187,6 @@ int hpvol(int channel)
 	return hpvol;
 }
 
-#ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 void update_hpvol()
 {
 	unsigned short val;
@@ -958,13 +958,17 @@ static ssize_t digital_gain_store(struct device *dev,
 			if (new_headroom_value > digital_gain) {
 				// reduce analog volume first
 				digital_gain = new_headroom_value;
+#ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 				update_hpvol();
+#endif
 				update_digital_gain(false);
 			} else {
 				// reduce digital volume first
 				digital_gain = new_headroom_value;
 				update_digital_gain(false);
+#ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 				update_hpvol();
+#endif
 			}
 		}
 	}
