@@ -99,6 +99,10 @@ unsigned int eq_band_values[5][4] = {
 	{0x0564, 0x0559, 0x4000}
 };
 
+// 3D effect
+bool stereo_expansion = false;
+short unsigned int stereo_expansion_gain = 16;
+
 // keep here a pointer to the codec structure
 struct snd_soc_codec *codec;
 
@@ -756,6 +760,23 @@ void update_headphone_eq(bool with_mute)
 	}
 }
 
+void update_stereo_expansion(bool with_mute)
+{
+	short unsigned int val;
+
+	if (stereo_expansion)
+		apply_saturation_prevention_drc();
+
+	val = wm8994_read(codec, WM8994_AIF1_DAC1_FILTERS_2);
+	val &= ~(WM8994_AIF1DAC1_3D_GAIN_MASK);
+	val &= ~(WM8994_AIF1DAC1_3D_ENA_MASK);
+
+	val |= (stereo_expansion_gain << WM8994_AIF1DAC1_3D_GAIN_SHIFT);
+	val |= (stereo_expansion << WM8994_AIF1DAC1_3D_ENA_SHIFT);
+
+	wm8994_write(codec, WM8994_AIF1_DAC1_FILTERS_2, val);
+}
+
 void load_current_eq_values()
 {
 	int i;
@@ -1035,6 +1056,35 @@ static ssize_t headphone_eq_bands_values_store(struct device *dev,
 	return size;
 }
 
+DECLARE_BOOL_SHOW(stereo_expansion);
+DECLARE_BOOL_STORE_UPDATE_WITH_MUTE(stereo_expansion,
+				    update_stereo_expansion,
+				    false);
+
+static ssize_t stereo_expansion_gain_show(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
+{
+	return sprintf(buf, "%u\n", stereo_expansion_gain);
+}
+
+static ssize_t stereo_expansion_gain_store(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t size)
+{
+	short unsigned val;
+
+	if (sscanf(buf, "%hu", &val) == 1)
+		if (val >= 0 && val < 32) {
+			stereo_expansion_gain = val;
+			update_stereo_expansion(false);
+		}
+
+	return size;
+}
+
+
+
 #ifdef CONFIG_SND_VOODOO_DEVELOPMENT
 static ssize_t show_wm8994_register_dump(struct device *dev,
 					 struct device_attribute *attr,
@@ -1248,6 +1298,14 @@ static DEVICE_ATTR(headphone_eq_bands_values, S_IRUGO | S_IWUGO,
 		   headphone_eq_bands_values_show,
 		   headphone_eq_bands_values_store);
 
+static DEVICE_ATTR(stereo_expansion, S_IRUGO | S_IWUGO,
+		   stereo_expansion_show,
+		   stereo_expansion_store);
+
+static DEVICE_ATTR(stereo_expansion_gain, S_IRUGO | S_IWUGO,
+		   stereo_expansion_gain_show,
+		   stereo_expansion_gain_store);
+
 static DEVICE_ATTR(mono_downmix, S_IRUGO | S_IWUGO,
 		   mono_downmix_show,
 		   mono_downmix_store);
@@ -1306,6 +1364,8 @@ static struct attribute *voodoo_sound_attributes[] = {
 	&dev_attr_headphone_eq_b4_gain.attr,
 	&dev_attr_headphone_eq_b5_gain.attr,
 	&dev_attr_headphone_eq_bands_values.attr,
+	&dev_attr_stereo_expansion.attr,
+	&dev_attr_stereo_expansion_gain.attr,
 	&dev_attr_mono_downmix.attr,
 #ifdef CONFIG_SND_VOODOO_DEVELOPMENT
 	&dev_attr_wm8994_register_dump.attr,
@@ -1503,12 +1563,13 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		    || reg == WM8994_AIF1_DAC1_RIGHT_VOLUME)
 			value = digital_headroom_get_value(value);
 
-		// Headphones EQ virtual hook
+		// Headphones EQ & 3D virtual hook
 		if (reg == WM8994_AIF1_DAC1_FILTERS_1
 		    || reg == WM8994_AIF1_DAC2_FILTERS_1
 		    || reg == WM8994_AIF2_DAC_FILTERS_1) {
 			bypass_write_hook = true;
 			update_headphone_eq(false);
+			update_stereo_expansion(false);
 			bypass_write_hook = false;
 		}
 
