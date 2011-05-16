@@ -84,7 +84,7 @@ bool dac_direct = true;
 bool mono_downmix = false;
 
 // equalizer
-unsigned int digital_gain = 0;
+short digital_gain = 0;
 
 bool headphone_eq = true;
 short eq_gains[5] = { 0, 0, 0, 0, 0 };
@@ -178,7 +178,7 @@ int hpvol(int channel)
 	     && !(wm8994->codec_state & CALL_ACTIVE)
 	     && (wm8994->rec_path == MIC_OFF)
 	    ) || is_path(RADIO_HEADPHONES)) {
-		hpvol = (hpvol + digital_gain);
+		hpvol = (hpvol - digital_gain);
 		if (hpvol > 62)
 			return 62;
 	}
@@ -673,18 +673,18 @@ unsigned short digital_gain_get_value(unsigned short val)
 
 		switch (digital_gain) {
 		case 0:		val |= 0xC0;	break;	// 0 dB
-		case 1:		val |= 0xBD;	break;	// -1.125 dB
-		case 2:		val |= 0xBB;	break;	// -1.875 dB
-		case 3:		val |= 0xB8;	break;	// -3 dB dB
-		case 4:		val |= 0xB5;	break;	// -4.125 dB
-		case 5:		val |= 0xB3;	break;	// -4.875 dB
-		case 6:		val |= 0xB0;	break;	// -6 dB
-		case 7:		val |= 0xAD;	break;	// -7.125 dB
-		case 8:		val |= 0xAB;	break;	// -7.875 dB
-		case 9:		val |= 0xA8;	break;	// -9 dB
-		case 10:	val |= 0xA5;	break;	// -10.125 dB
-		case 11:	val |= 0xA3;	break;	// -10.875 dB
-		case 12:	val |= 0xA0;	break;	// -12 dB
+		case -1:	val |= 0xBD;	break;	// -1.125 dB
+		case -2:	val |= 0xBB;	break;	// -1.875 dB
+		case -3:	val |= 0xB8;	break;	// -3 dB dB
+		case -4:	val |= 0xB5;	break;	// -4.125 dB
+		case -5:	val |= 0xB3;	break;	// -4.875 dB
+		case -6:	val |= 0xB0;	break;	// -6 dB
+		case -7:	val |= 0xAD;	break;	// -7.125 dB
+		case -8:	val |= 0xAB;	break;	// -7.875 dB
+		case -9:	val |= 0xA8;	break;	// -9 dB
+		case -10:	val |= 0xA5;	break;	// -10.125 dB
+		case -11:	val |= 0xA3;	break;	// -10.875 dB
+		case -12:	val |= 0xA0;	break;	// -12 dB
 		}
 	}
 
@@ -952,10 +952,10 @@ static ssize_t digital_gain_store(struct device *dev,
 				      struct device_attribute *attr,
 				      const char *buf, size_t size)
 {
-	unsigned short new_headroom_value;
-	if (sscanf(buf, "%hu", &new_headroom_value) == 1) {
-		if (new_headroom_value >= 0 && new_headroom_value <= 12) {
-			if (new_headroom_value < digital_gain) {
+	short new_headroom_value;
+	if (sscanf(buf, "%hd", &new_headroom_value) == 1) {
+		if (new_headroom_value <= 0 && new_headroom_value >= -12) {
+			if (new_headroom_value > digital_gain) {
 				// reduce analog volume first
 				digital_gain = new_headroom_value;
 				update_hpvol();
