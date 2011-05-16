@@ -51,6 +51,8 @@
 
 bool bypass_write_hook = false;
 
+short unsigned int debug_log_level = LOG_OFF;
+
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 unsigned short hplvol = CONFIG_SND_VOODOO_HP_LEVEL;
 unsigned short hprvol = CONFIG_SND_VOODOO_HP_LEVEL;
@@ -147,6 +149,14 @@ static ssize_t headphone_eq_b##band##_gain_store(struct device *dev,	       \
 #else
 #define DECLARE_WM8994(codec) struct wm8994_priv *wm8994 = codec->private_data;
 #endif
+
+bool debug_log(short unsigned int level)
+{
+	if (debug_log_level >= level)
+		return true;
+
+	return false;
+}
 
 int hpvol(int channel)
 {
@@ -735,9 +745,9 @@ void update_headphone_eq(bool with_mute)
 		return;
 
 	for (i = 0; i < ARRAY_SIZE(eq_band_values); i++) {
-#ifdef CONFIG_SND_VOODOO_DEBUG
-		printk("Voodoo sound: send EQ Band %d\n", i + 1);
-#endif
+		if (debug_log(LOG_INFOS))
+			printk("Voodoo sound: send EQ Band %d\n", i + 1);
+
 		for (j = 0; j < eq_bands[i]; j++) {
 			wm8994_write(codec,
 				     first_reg + k, eq_band_values[i][j]);
@@ -789,6 +799,21 @@ void apply_saturation_prevention_drc()
  * Declaring the controling misc devices
  *
  */
+static ssize_t debug_log_show(struct device *dev,
+			      struct device_attribute *attr,
+			      char *buf)
+{
+	return sprintf(buf, "%u\n", debug_log_level);
+}
+
+static ssize_t debug_log_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t size)
+{
+	sscanf(buf, "%hu", &debug_log_level);
+	return size;
+}
+
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 static ssize_t headphone_amplifier_level_show(struct device *dev,
 					      struct device_attribute *attr,
@@ -978,11 +1003,12 @@ static ssize_t headphone_eq_bands_values_store(struct device *dev,
 		for (i = 0; i < ARRAY_SIZE(eq_band_coef_names); i++) {
 			if (strcmp(eq_band_coef_names[i], coef_name)
 			    && band >=1 && band <= 5) {
-#ifdef CONFIG_SND_VOODOO_DEBUG
-				printk("Voodoo sound: read EQ from sysfs: "
-				       "EQ Band %hd %s: 0x%04X\n",
-				       band, coef_name, val);
-#endif
+
+				if (debug_log(LOG_INFOS))
+					printk("Voodoo sound: read EQ from "
+					       "sysfs: EQ Band %hd %s: 0x%04X\n"
+					       , band, coef_name, val);
+
 				if (eq_bands[i] == 3 && i == 3)
 					eq_band_values[band-1][3] = val;
 				else
@@ -996,7 +1022,7 @@ static ssize_t headphone_eq_bands_values_store(struct device *dev,
 	return size;
 }
 
-#ifdef CONFIG_SND_VOODOO_DEBUG
+#ifdef CONFIG_SND_VOODOO_DEVELOPMENT
 static ssize_t show_wm8994_register_dump(struct device *dev,
 					 struct device_attribute *attr,
 					 char *buf)
@@ -1088,9 +1114,10 @@ static ssize_t store_wm8994_write(struct device *dev,
 
 	while (sscanf(buf, "%hx %hx%n", &reg, &val, &bytes_read) == 2) {
 		buf += bytes_read;
-#ifdef CONFIG_SND_VOODOO_DEBUG_LOG
-		printk("Voodoo sound: read from sysfs: %X, %X\n", reg, val);
-#endif
+		if (debug_log(LOG_INFOS));
+			printk("Voodoo sound: read from sysfs: %X, %X\n",
+			       reg, val);
+
 		bypass_write_hook = true;
 		wm8994_write(codec, reg, val);
 		bypass_write_hook = false;
@@ -1123,6 +1150,10 @@ static ssize_t enable_store(struct device *dev,
 	return size;
 }
 #endif
+
+static DEVICE_ATTR(debug_log, S_IRUGO | S_IWUGO,
+		   debug_log_show,
+		   debug_log_store);
 
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 static DEVICE_ATTR(headphone_amplifier_level, S_IRUGO | S_IWUGO,
@@ -1208,7 +1239,7 @@ static DEVICE_ATTR(mono_downmix, S_IRUGO | S_IWUGO,
 		   mono_downmix_show,
 		   mono_downmix_store);
 
-#ifdef CONFIG_SND_VOODOO_DEBUG
+#ifdef CONFIG_SND_VOODOO_DEVELOPMENT
 static DEVICE_ATTR(wm8994_register_dump, S_IRUGO,
 		   show_wm8994_register_dump,
 		   NULL);
@@ -1235,6 +1266,7 @@ static DEVICE_ATTR(module, 0,
 #endif
 
 static struct attribute *voodoo_sound_attributes[] = {
+	&dev_attr_debug_log.attr,
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 	&dev_attr_headphone_amplifier_level.attr,
 #endif
@@ -1262,7 +1294,7 @@ static struct attribute *voodoo_sound_attributes[] = {
 	&dev_attr_headphone_eq_b5_gain.attr,
 	&dev_attr_headphone_eq_bands_values.attr,
 	&dev_attr_mono_downmix.attr,
-#ifdef CONFIG_SND_VOODOO_DEBUG
+#ifdef CONFIG_SND_VOODOO_DEVELOPMENT
 	&dev_attr_wm8994_register_dump.attr,
 	&dev_attr_wm8994_write.attr,
 #endif
@@ -1316,11 +1348,8 @@ void update_enable()
 		printk("Voodoo sound: initializing driver v%d\n",
 		       VOODOO_SOUND_VERSION);
 
-#ifdef CONFIG_SND_VOODOO_DEBUG
-		printk("Voodoo sound: debug & dev tools enabled\n");
-#endif
-#ifdef CONFIG_SND_VOODOO_DEBUG_LOG
-		printk("Voodoo sound: wm8994_write logging enabled\n");
+#ifdef CONFIG_SND_VOODOO_DEVELOPMENT
+		printk("Voodoo sound: codec development tools enabled\n");
 #endif
 
 		misc_register(&voodoo_sound_device);
@@ -1471,53 +1500,52 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		}
 
 	}
-#ifdef CONFIG_SND_VOODOO_DEBUG_LOG
+	if (debug_log(LOG_VERBOSE))
 	// log every write to dmesg
 #ifdef NEXUS_S
-	printk("Voodoo sound: codec_state=%u, stream_state=%u, "
-	       "cur_path=%i, rec_path=%i, "
-	       "power_state=%i\n",
-	       wm8994->codec_state, wm8994->stream_state,
-	       wm8994->cur_path, wm8994->rec_path,
-	       wm8994->power_state);
+		printk("Voodoo sound: codec_state=%u, stream_state=%u, "
+		       "cur_path=%i, rec_path=%i, "
+		       "power_state=%i\n",
+		       wm8994->codec_state, wm8994->stream_state,
+		       wm8994->cur_path, wm8994->rec_path,
+		       wm8994->power_state);
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
-	printk("Voodoo sound: wm8994_write 0x%03X 0x%04X "
-	       "codec_state=%u, stream_state=%u, "
-	       "cur_path=%i, rec_path=%i, "
-	       "fmradio_path=%i, fmr_mix_path=%i, "
-	       "input_source=%i, output_source=%i, "
-	       "power_state=%i\n",
-	       reg, value,
-	       wm8994->codec_state, wm8994->stream_state,
-	       wm8994->fmradio_path, wm8994->fmr_mix_path,
-	       wm8994->cur_path, wm8994->rec_path,
-	       wm8994->input_source, wm8994->output_source,
-	       wm8994->power_state);
+		printk("Voodoo sound: wm8994_write 0x%03X 0x%04X "
+		       "codec_state=%u, stream_state=%u, "
+		       "cur_path=%i, rec_path=%i, "
+		       "fmradio_path=%i, fmr_mix_path=%i, "
+		       "input_source=%i, output_source=%i, "
+		       "power_state=%i\n",
+		       reg, value,
+		       wm8994->codec_state, wm8994->stream_state,
+		       wm8994->fmradio_path, wm8994->fmr_mix_path,
+		       wm8994->cur_path, wm8994->rec_path,
+		       wm8994->input_source, wm8994->output_source,
+		       wm8994->power_state);
 #else
-	printk("Voodoo sound: wm8994_write 0x%03X 0x%04X "
-	       "codec_state=%u, stream_state=%u, "
-	       "cur_path=%i, rec_path=%i, "
-	       "fmradio_path=%i, fmr_mix_path=%i, "
+		printk("Voodoo sound: wm8994_write 0x%03X 0x%04X "
+		       "codec_state=%u, stream_state=%u, "
+		       "cur_path=%i, rec_path=%i, "
+		       "fmradio_path=%i, fmr_mix_path=%i, "
 #ifdef CONFIG_S5PC110_KEPLER_BOARD
-	       "call_record_path=%i, call_record_ch=%i, "
-	       "AUDIENCE_state=%i, "
-	       "Fac_SUB_MIC_state=%i, TTY_state=%i, "
+		       "call_record_path=%i, call_record_ch=%i, "
+		       "AUDIENCE_state=%i, "
+		       "Fac_SUB_MIC_state=%i, TTY_state=%i, "
 #endif
-	       "power_state=%i, "
-	       "recognition_active=%i, ringtone_active=%i\n",
-	       reg, value,
-	       wm8994->codec_state, wm8994->stream_state,
-	       wm8994->cur_path, wm8994->rec_path,
-	       wm8994->fmradio_path, wm8994->fmr_mix_path,
+		       "power_state=%i, "
+		       "recognition_active=%i, ringtone_active=%i\n",
+		       reg, value,
+		       wm8994->codec_state, wm8994->stream_state,
+		       wm8994->cur_path, wm8994->rec_path,
+		       wm8994->fmradio_path, wm8994->fmr_mix_path,
 #ifdef CONFIG_S5PC110_KEPLER_BOARD
-	       wm8994->call_record_path, wm8994->call_record_ch,
-	       wm8994->AUDIENCE_state,
-	       wm8994->Fac_SUB_MIC_state, wm8994->TTY_state,
+		       wm8994->call_record_path, wm8994->call_record_ch,
+		       wm8994->AUDIENCE_state,
+		       wm8994->Fac_SUB_MIC_state, wm8994->TTY_state,
 #endif
-	       wm8994->power_state,
-	       wm8994->recognition_active, wm8994->ringtone_active);
-#endif
+		       wm8994->power_state,
+		       wm8994->recognition_active, wm8994->ringtone_active);
 #endif
 #endif
 	return value;

@@ -25,6 +25,9 @@
 #define M110S
 #endif
 
+enum debug_log { LOG_OFF, LOG_INFOS, LOG_VERBOSE };
+bool debug_log(short unsigned int level);
+
 enum unified_path { HEADPHONES, RADIO_HEADPHONES, SPEAKER, MAIN_MICROPHONE };
 
 bool is_path(int unified_path);
