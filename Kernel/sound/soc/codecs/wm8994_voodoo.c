@@ -84,7 +84,7 @@ bool dac_direct = true;
 bool mono_downmix = false;
 
 // equalizer
-unsigned int digital_headroom = 0;
+unsigned int digital_gain = 0;
 
 bool headphone_eq = true;
 short eq_gains[5] = { 0, 0, 0, 0, 0 };
@@ -178,7 +178,7 @@ int hpvol(int channel)
 	     && !(wm8994->codec_state & CALL_ACTIVE)
 	     && (wm8994->rec_path == MIC_OFF)
 	    ) || is_path(RADIO_HEADPHONES)) {
-		hpvol = (hpvol + digital_headroom);
+		hpvol = (hpvol + digital_gain);
 		if (hpvol > 62)
 			return 62;
 	}
@@ -657,7 +657,7 @@ void update_dac_direct(bool with_mute)
 	bypass_write_hook = false;
 }
 
-unsigned short digital_headroom_get_value(unsigned short val)
+unsigned short digital_gain_get_value(unsigned short val)
 {
 	DECLARE_WM8994(codec);
 
@@ -671,7 +671,7 @@ unsigned short digital_headroom_get_value(unsigned short val)
 		// clear the actual DAC volume for this value
 		val &= ~(WM8994_DAC1R_VOL_MASK);
 
-		switch (digital_headroom) {
+		switch (digital_gain) {
 		case 0:		val |= 0xC0;	break;	// 0 dB
 		case 1:		val |= 0xBD;	break;	// -1.125 dB
 		case 2:		val |= 0xBB;	break;	// -1.875 dB
@@ -691,12 +691,12 @@ unsigned short digital_headroom_get_value(unsigned short val)
 	return val;
 }
 
-void update_digital_headroom(bool with_mute)
+void update_digital_gain(bool with_mute)
 {
 	unsigned short val1, val2;
-	val1 = digital_headroom_get_value(wm8994_read(codec,
+	val1 = digital_gain_get_value(wm8994_read(codec,
 						WM8994_AIF1_DAC1_LEFT_VOLUME));
-	val2 = digital_headroom_get_value(wm8994_read(codec,
+	val2 = digital_gain_get_value(wm8994_read(codec,
 						WM8994_AIF1_DAC1_RIGHT_VOLUME));
 
 	bypass_write_hook = true;
@@ -866,7 +866,7 @@ static ssize_t headphone_amplifier_level_store(struct device *dev,
 		if (hprvol > 62)
 			hprvol = 62;
 
-		update_digital_headroom(false);
+		update_digital_gain(false);
 		update_hpvol();
 	}
 	return size;
@@ -942,28 +942,28 @@ DECLARE_BOOL_STORE_UPDATE_WITH_MUTE(dac_direct,
 				    update_dac_direct,
 				    false);
 
-static ssize_t digital_headroom_show(struct device *dev,
+static ssize_t digital_gain_show(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", digital_headroom);
+	return sprintf(buf, "%d\n", digital_gain);
 }
 
-static ssize_t digital_headroom_store(struct device *dev,
+static ssize_t digital_gain_store(struct device *dev,
 				      struct device_attribute *attr,
 				      const char *buf, size_t size)
 {
 	unsigned short new_headroom_value;
 	if (sscanf(buf, "%hu", &new_headroom_value) == 1) {
 		if (new_headroom_value >= 0 && new_headroom_value <= 12) {
-			if (new_headroom_value < digital_headroom) {
+			if (new_headroom_value < digital_gain) {
 				// reduce analog volume first
-				digital_headroom = new_headroom_value;
+				digital_gain = new_headroom_value;
 				update_hpvol();
-				update_digital_headroom(false);
+				update_digital_gain(false);
 			} else {
 				// reduce digital volume first
-				digital_headroom = new_headroom_value;
-				update_digital_headroom(false);
+				digital_gain = new_headroom_value;
+				update_digital_gain(false);
 				update_hpvol();
 			}
 		}
@@ -1082,8 +1082,6 @@ static ssize_t stereo_expansion_gain_store(struct device *dev,
 
 	return size;
 }
-
-
 
 #ifdef CONFIG_SND_VOODOO_DEVELOPMENT
 static ssize_t show_wm8994_register_dump(struct device *dev,
@@ -1266,9 +1264,9 @@ static DEVICE_ATTR(dac_direct, S_IRUGO | S_IWUGO,
 		   dac_direct_show,
 		   dac_direct_store);
 
-static DEVICE_ATTR(digital_headroom, S_IRUGO | S_IWUGO,
-		   digital_headroom_show,
-		   digital_headroom_store);
+static DEVICE_ATTR(digital_gain, S_IRUGO | S_IWUGO,
+		   digital_gain_show,
+		   digital_gain_store);
 
 static DEVICE_ATTR(headphone_eq, S_IRUGO | S_IWUGO,
 		   headphone_eq_show,
@@ -1356,7 +1354,7 @@ static struct attribute *voodoo_sound_attributes[] = {
 	&dev_attr_adc_osr128.attr,
 	&dev_attr_fll_tuning.attr,
 	&dev_attr_dac_direct.attr,
-	&dev_attr_digital_headroom.attr,
+	&dev_attr_digital_gain.attr,
 	&dev_attr_headphone_eq.attr,
 	&dev_attr_headphone_eq_b1_gain.attr,
 	&dev_attr_headphone_eq_b2_gain.attr,
@@ -1561,7 +1559,7 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		// Digital Headroom virtual hook
 		if (reg == WM8994_AIF1_DAC1_LEFT_VOLUME
 		    || reg == WM8994_AIF1_DAC1_RIGHT_VOLUME)
-			value = digital_headroom_get_value(value);
+			value = digital_gain_get_value(value);
 
 		// Headphones EQ & 3D virtual hook
 		if (reg == WM8994_AIF1_DAC1_FILTERS_1
