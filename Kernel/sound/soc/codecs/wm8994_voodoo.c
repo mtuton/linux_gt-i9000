@@ -777,8 +777,21 @@ void apply_saturation_prevention_drc()
 
 	// configure the DRC to avoid saturation: not actually compress signal
 	// gain is unmodified. Should affect only what's higher than 0 dBFS
-	val = wm8994_read(codec, WM8994_AIF1_DRC1_1);
 
+	// tune Attack & Decacy values
+	val = wm8994_read(codec, WM8994_AIF1_DRC1_2);
+	val &= ~(WM8994_AIF1DRC1_ATK_MASK);
+	val &= ~(WM8994_AIF1DRC1_DCY_MASK);
+	val |= (0x1 << WM8994_AIF1DRC1_ATK_SHIFT);
+	val |= (0x4 << WM8994_AIF1DRC1_DCY_SHIFT);
+	wm8994_write(codec, WM8994_AIF1_DRC1_2, val);
+
+	// Above knee: flat (what really avoid the saturation)
+	val = wm8994_read(codec, WM8994_AIF1_DRC1_3);
+	val |= (0x5 << WM8994_AIF1DRC1_HI_COMP_SHIFT);
+	wm8994_write(codec, WM8994_AIF1_DRC1_3, val);
+
+	val = wm8994_read(codec, WM8994_AIF1_DRC1_1);
 	// disable Quick Release and Anti Clip
 	// both do do more harm than good for this particular usage
 	val &= ~(WM8994_AIF1DRC1_QR_MASK);
@@ -787,11 +800,6 @@ void apply_saturation_prevention_drc()
 	// enable DRC
 	val |= WM8994_AIF1DAC1_DRC_ENA;
 	wm8994_write(codec, WM8994_AIF1_DRC1_1, val);
-
-	// Above knee: flat (what really avoid the saturation)
-	val = wm8994_read(codec, WM8994_AIF1_DRC1_3);
-	val |= (0x5 << WM8994_AIF1DRC1_HI_COMP_SHIFT);
-	wm8994_write(codec, WM8994_AIF1_DRC1_3, val);
 }
 
 /*
