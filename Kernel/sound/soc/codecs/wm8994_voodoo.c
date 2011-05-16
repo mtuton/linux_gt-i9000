@@ -997,28 +997,33 @@ static ssize_t headphone_eq_bands_values_store(struct device *dev,
 	char coef_name[2];
 	unsigned int bytes_read = 0;
 
-	while (sscanf(buf, "%hd %s %hx%n",
+	while (sscanf(buf, "%hu %s %hx%n",
 		      &band, coef_name, &val, &bytes_read) == 3) {
 
+		buf += bytes_read;
+
+		if (band < 1 || band > 5)
+			continue;
+
 		for (i = 0; i < ARRAY_SIZE(eq_band_coef_names); i++) {
-			if (strcmp(eq_band_coef_names[i], coef_name)
-			    && band >=1 && band <= 5) {
+			// loop through band coefficient letters
+			if (strncmp(eq_band_coef_names[i], coef_name, 2) == 0) {
+				if (eq_bands[band-1] == 3 && i == 3)
+					// deal with high and low shelves
+					eq_band_values[band-1][2] = val;
+				else
+					// parametric bands
+					eq_band_values[band-1][i] = val;
 
 				if (debug_log(LOG_INFOS))
 					printk("Voodoo sound: read EQ from "
 					       "sysfs: EQ Band %hd %s: 0x%04X\n"
 					       , band, coef_name, val);
-
-				if (eq_bands[i] == 3 && i == 3)
-					eq_band_values[band-1][3] = val;
-				else
-					eq_band_values[band-1][i] = val;
-
 				break;
 			}
 		}
-		buf += bytes_read;
 	}
+
 	return size;
 }
 
