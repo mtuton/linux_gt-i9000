@@ -759,8 +759,8 @@ void update_stereo_expansion(bool with_mute)
 
 	val = wm8994_read(codec, WM8994_AIF1_DAC1_FILTERS_2);
 	if (stereo_expansion) {
-		val |= (stereo_expansion_gain << WM8994_AIF1DAC1_3D_GAIN_SHIFT);
 		val &= ~(WM8994_AIF1DAC1_3D_GAIN_MASK);
+		val |= (stereo_expansion_gain << WM8994_AIF1DAC1_3D_GAIN_SHIFT);
 	}
 	val &= ~(WM8994_AIF1DAC1_3D_ENA_MASK);
 	val |= (stereo_expansion << WM8994_AIF1DAC1_3D_ENA_SHIFT);
