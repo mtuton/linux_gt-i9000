@@ -175,12 +175,7 @@ int hpvol(int channel)
 	else
 		hpvol = hprvol;
 
-	if ((is_path(HEADPHONES)
-	     && (wm8994->codec_state & PLAYBACK_ACTIVE)
-	     && (wm8994->stream_state & PCM_STREAM_PLAYBACK)
-	     && !(wm8994->codec_state & CALL_ACTIVE)
-	     && (wm8994->rec_path == MIC_OFF)
-	    ) || is_path(RADIO_HEADPHONES)) {
+	if (is_path_media_or_fm_no_call_no_record()) {
 		hpvol = (hpvol - ((digital_gain / 100) + 5) / 10);
 		if (hpvol > 62)
 			return 62;
