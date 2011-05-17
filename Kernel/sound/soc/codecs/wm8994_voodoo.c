@@ -175,7 +175,10 @@ int hpvol(int channel)
 		hpvol = hprvol;
 
 	if (is_path_media_or_fm_no_call_no_record()) {
-		hpvol = (hpvol - ((digital_gain / 100) + 5) / 10);
+		// negative digital gain compensation
+		if (digital_gain < 0)
+			hpvol = (hpvol - ((digital_gain / 100) + 5) / 10);
+
 		if (hpvol > 62)
 			return 62;
 	}
@@ -668,6 +671,7 @@ unsigned short digital_gain_get_value(unsigned short val)
 	// AIF gain to 0dB
 	int aif_gain = 0xC0;
 	int i;
+	int step = -375;
 
 	if (is_path_media_or_fm_no_call_no_record()) {
 
@@ -676,15 +680,14 @@ unsigned short digital_gain_get_value(unsigned short val)
 			val &= ~(WM8994_DAC1R_VOL_MASK);
 
 			// calculation with round
-			i = (((digital_gain * 10) / -375) + 5) / 10;
+			i = ((digital_gain * 10 / step) + 5) / 10;
 			aif_gain -= i;
 			val |= aif_gain;
 
-			if (debug_log(LOG_INFOS)) {
+			if (debug_log(LOG_INFOS))
 				printk("Voodoo sound: digital gain: %d mdB, "
 				       "steps: %d, real AIF gain: %d mdB\n",
-				digital_gain, i, i * -375);
-			}
+				digital_gain, i, i * step);
 		}
 	}
 
@@ -721,9 +724,6 @@ void update_headphone_eq(bool with_mute)
 		return;
 	}
 
-	if (headphone_eq)
-		apply_saturation_prevention_drc();
-
 	gains_1 =
 	    ((eq_gains[0] + 12) << WM8994_AIF1DAC1_EQ_B1_GAIN_SHIFT) |
 	    ((eq_gains[1] + 12) << WM8994_AIF1DAC1_EQ_B2_GAIN_SHIFT) |
@@ -757,9 +757,6 @@ void update_stereo_expansion(bool with_mute)
 {
 	short unsigned int val;
 
-	if (stereo_expansion)
-		apply_saturation_prevention_drc();
-
 	val = wm8994_read(codec, WM8994_AIF1_DAC1_FILTERS_2);
 	val &= ~(WM8994_AIF1DAC1_3D_GAIN_MASK);
 	val &= ~(WM8994_AIF1DAC1_3D_ENA_MASK);
@@ -788,6 +785,22 @@ void load_current_eq_values()
 void apply_saturation_prevention_drc()
 {
 	unsigned short val;
+	unsigned short drc_gain = 0;
+	int i;
+	int step = 750;
+
+	// don't apply the limiter if not playing media
+	// (exclude FM radio, it has its own DRC settings)
+	if (!is_path_media_or_fm_no_call_no_record()
+	    || is_path(RADIO_HEADPHONES))
+		return;
+
+	// don't apply the limiter without stereo_expansion or headphone_eq
+	// or a positive digital gain
+	if (!(stereo_expansion
+	      || headphone_eq
+	      || digital_gain > 0))
+		return;
 
 	// configure the DRC to avoid saturation: not actually compress signal
 	// gain is unmodified. Should affect only what's higher than 0 dBFS
@@ -798,6 +811,11 @@ void apply_saturation_prevention_drc()
 	val &= ~(WM8994_AIF1DRC1_DCY_MASK);
 	val |= (0x1 << WM8994_AIF1DRC1_ATK_SHIFT);
 	val |= (0x4 << WM8994_AIF1DRC1_DCY_SHIFT);
+
+	// set DRC maximum gain to 36 dB
+	val &= ~(WM8994_AIF1DRC1_MAXGAIN_MASK);
+	val |= (0x3 << WM8994_AIF1DRC1_MAXGAIN_SHIFT);
+
 	wm8994_write(codec, WM8994_AIF1_DRC1_2, val);
 
 	// Above knee: flat (what really avoid the saturation)
@@ -814,6 +832,23 @@ void apply_saturation_prevention_drc()
 	// enable DRC
 	val |= WM8994_AIF1DAC1_DRC_ENA;
 	wm8994_write(codec, WM8994_AIF1_DRC1_1, val);
+
+	// deal with positive digital gains
+	if (digital_gain > 0) {
+		val = wm8994_read(codec, WM8994_AIF1_DRC1_4);
+		val &= ~(WM8994_AIF1DRC1_KNEE_IP_MASK);
+
+		i = ((digital_gain * 10 / step) + 5) / 10;
+		drc_gain += i;
+		val |= (drc_gain << WM8994_AIF1DRC1_KNEE_IP_SHIFT);
+
+		if (debug_log(LOG_INFOS))
+			printk("Voodoo sound: digital gain: %d mdB, "
+			       "steps: %d, real DRC gain: %d mdB\n",
+			digital_gain, i, i * step);
+
+		wm8994_write(codec, WM8994_AIF1_DRC1_4, val);
+	}
 }
 
 /*
@@ -947,7 +982,7 @@ static ssize_t digital_gain_store(struct device *dev,
 {
 	int new_digital_gain;
 	if (sscanf(buf, "%d", &new_digital_gain) == 1) {
-		if (new_digital_gain <= 0 && new_digital_gain >= -71625) {
+		if (new_digital_gain <= 36000 && new_digital_gain >= -71625) {
 			if (new_digital_gain > digital_gain) {
 				// reduce analog volume first
 				digital_gain = new_digital_gain;
@@ -964,6 +999,7 @@ static ssize_t digital_gain_store(struct device *dev,
 #endif
 			}
 		}
+		apply_saturation_prevention_drc();
 	}
 	return size;
 }
@@ -1563,6 +1599,7 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		    || reg == WM8994_AIF1_DAC2_FILTERS_1
 		    || reg == WM8994_AIF2_DAC_FILTERS_1) {
 			bypass_write_hook = true;
+			apply_saturation_prevention_drc();
 			update_headphone_eq(false);
 			update_stereo_expansion(false);
 			bypass_write_hook = false;
