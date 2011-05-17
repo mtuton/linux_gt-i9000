@@ -168,7 +168,6 @@ bool debug_log(short unsigned int level)
 int hpvol(int channel)
 {
 	int hpvol;
-	DECLARE_WM8994(codec);
 
 	if (channel == 0)
 		hpvol = hplvol;
@@ -635,8 +634,6 @@ void update_mono_downmix(bool with_mute)
 
 unsigned short dac_direct_get_value(unsigned short val, bool can_reverse)
 {
-	DECLARE_WM8994(codec);
-
 	if (is_path_media_or_fm_no_call_no_record()) {
 
 		if (dac_direct) {
