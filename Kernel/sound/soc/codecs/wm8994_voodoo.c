@@ -84,7 +84,9 @@ bool dac_direct = true;
 bool mono_downmix = false;
 
 // equalizer
-short digital_gain = 0;
+
+// digital gain value in mili dB
+int digital_gain = 0;
 
 bool headphone_eq = true;
 short eq_gains[5] = { 0, 0, 0, 0, 0 };
@@ -179,7 +181,7 @@ int hpvol(int channel)
 	     && !(wm8994->codec_state & CALL_ACTIVE)
 	     && (wm8994->rec_path == MIC_OFF)
 	    ) || is_path(RADIO_HEADPHONES)) {
-		hpvol = (hpvol - digital_gain);
+		hpvol = (hpvol - ((digital_gain / 100) + 5) / 10);
 		if (hpvol > 62)
 			return 62;
 	}
@@ -659,6 +661,10 @@ void update_dac_direct(bool with_mute)
 
 unsigned short digital_gain_get_value(unsigned short val)
 {
+	// AIF gain to 0dB
+	int aif_gain = 0xC0;
+	int i;
+
 	DECLARE_WM8994(codec);
 
 	if ((is_path(HEADPHONES)
@@ -668,23 +674,20 @@ unsigned short digital_gain_get_value(unsigned short val)
 	     && (wm8994->rec_path == MIC_OFF)
 	    ) || is_path(RADIO_HEADPHONES)) {
 
-		// clear the actual DAC volume for this value
-		val &= ~(WM8994_DAC1R_VOL_MASK);
+		if (digital_gain <= 0) {
+			// clear the actual DAC volume for this value
+			val &= ~(WM8994_DAC1R_VOL_MASK);
 
-		switch (digital_gain) {
-		case 0:		val |= 0xC0;	break;	// 0 dB
-		case -1:	val |= 0xBD;	break;	// -1.125 dB
-		case -2:	val |= 0xBB;	break;	// -1.875 dB
-		case -3:	val |= 0xB8;	break;	// -3 dB dB
-		case -4:	val |= 0xB5;	break;	// -4.125 dB
-		case -5:	val |= 0xB3;	break;	// -4.875 dB
-		case -6:	val |= 0xB0;	break;	// -6 dB
-		case -7:	val |= 0xAD;	break;	// -7.125 dB
-		case -8:	val |= 0xAB;	break;	// -7.875 dB
-		case -9:	val |= 0xA8;	break;	// -9 dB
-		case -10:	val |= 0xA5;	break;	// -10.125 dB
-		case -11:	val |= 0xA3;	break;	// -10.875 dB
-		case -12:	val |= 0xA0;	break;	// -12 dB
+			// calculation with round
+			i = (((digital_gain * 10) / -375) + 5) / 10;
+			aif_gain -= i;
+			val |= aif_gain;
+
+			if (debug_log(LOG_INFOS)) {
+				printk("Voodoo sound: digital gain: %d mdB, "
+				       "steps: %d, real AIF gain: %d mdB\n",
+				digital_gain, i, i * -375);
+			}
 		}
 	}
 
@@ -952,19 +955,19 @@ static ssize_t digital_gain_store(struct device *dev,
 				      struct device_attribute *attr,
 				      const char *buf, size_t size)
 {
-	short new_headroom_value;
-	if (sscanf(buf, "%hd", &new_headroom_value) == 1) {
-		if (new_headroom_value <= 0 && new_headroom_value >= -12) {
-			if (new_headroom_value > digital_gain) {
+	int new_digital_gain;
+	if (sscanf(buf, "%d", &new_digital_gain) == 1) {
+		if (new_digital_gain <= 0 && new_digital_gain >= -71625) {
+			if (new_digital_gain > digital_gain) {
 				// reduce analog volume first
-				digital_gain = new_headroom_value;
+				digital_gain = new_digital_gain;
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 				update_hpvol();
 #endif
 				update_digital_gain(false);
 			} else {
 				// reduce digital volume first
-				digital_gain = new_headroom_value;
+				digital_gain = new_digital_gain;
 				update_digital_gain(false);
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 				update_hpvol();
