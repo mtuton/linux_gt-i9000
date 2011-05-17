@@ -800,7 +800,7 @@ void apply_saturation_prevention_drc()
 	// or a positive digital gain
 	if (!(stereo_expansion
 	      || headphone_eq
-	      || digital_gain > 0))
+	      || digital_gain >= 0))
 		return;
 
 	// configure the DRC to avoid saturation: not actually compress signal
@@ -831,14 +831,15 @@ void apply_saturation_prevention_drc()
 	val &= ~(WM8994_AIF1DRC1_ANTICLIP_MASK);
 
 	// enable DRC
+	val &= ~(WM8994_AIF1DAC1_DRC_ENA_MASK);
 	val |= WM8994_AIF1DAC1_DRC_ENA;
 	wm8994_write(codec, WM8994_AIF1_DRC1_1, val);
 
-	// deal with positive digital gains
-	if (digital_gain > 0) {
-		val = wm8994_read(codec, WM8994_AIF1_DRC1_4);
-		val &= ~(WM8994_AIF1DRC1_KNEE_IP_MASK);
+	val = wm8994_read(codec, WM8994_AIF1_DRC1_4);
+	val &= ~(WM8994_AIF1DRC1_KNEE_IP_MASK);
 
+	if (digital_gain >= 0) {
+		// deal with positive digital gains
 		i = ((digital_gain * 10 / step) + 5) / 10;
 		drc_gain += i;
 		val |= (drc_gain << WM8994_AIF1DRC1_KNEE_IP_SHIFT);
@@ -848,8 +849,8 @@ void apply_saturation_prevention_drc()
 			       "steps: %d, real DRC gain: %d mdB\n",
 			digital_gain, i, i * step);
 
-		wm8994_write(codec, WM8994_AIF1_DRC1_4, val);
 	}
+	wm8994_write(codec, WM8994_AIF1_DRC1_4, val);
 }
 
 /*
