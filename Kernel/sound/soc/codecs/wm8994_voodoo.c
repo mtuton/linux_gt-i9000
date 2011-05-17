@@ -189,7 +189,7 @@ int hpvol(int channel)
 	return hpvol;
 }
 
-void update_hpvol()
+void update_hpvol(bool zero_cross)
 {
 	unsigned short val;
 	DECLARE_WM8994(codec);
@@ -204,13 +204,15 @@ void update_hpvol()
 
 	// we don't need the Volume Update flag when sending the first volume
 	val = (WM8994_HPOUT1L_MUTE_N | hpvol(0));
-	val |= WM8994_HPOUT1L_ZC;
+	if (zero_cross)
+		val |= WM8994_HPOUT1L_ZC;
 	wm8994_write(codec, WM8994_LEFT_OUTPUT_VOLUME, val);
 
 	// this time we write the right volume plus the Volume Update flag.
 	// This way, both volume are set at the same time
 	val = (WM8994_HPOUT1_VU | WM8994_HPOUT1R_MUTE_N | hpvol(1));
-	val |= WM8994_HPOUT1L_ZC;
+	if (zero_cross)
+		val |= WM8994_HPOUT1L_ZC;
 	wm8994_write(codec, WM8994_RIGHT_OUTPUT_VOLUME, val);
 	bypass_write_hook = false;
 }
@@ -870,7 +872,7 @@ static ssize_t headphone_amplifier_level_store(struct device *dev,
 			hprvol = 62;
 
 		update_digital_gain(false);
-		update_hpvol();
+		update_hpvol(true);
 	}
 	return size;
 }
@@ -962,7 +964,7 @@ static ssize_t digital_gain_store(struct device *dev,
 				// reduce analog volume first
 				digital_gain = new_digital_gain;
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
-				update_hpvol();
+				update_hpvol(true);
 #endif
 				update_digital_gain(false);
 			} else {
@@ -970,7 +972,7 @@ static ssize_t digital_gain_store(struct device *dev,
 				digital_gain = new_digital_gain;
 				update_digital_gain(false);
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
-				update_hpvol();
+				update_hpvol(true);
 #endif
 			}
 		}
