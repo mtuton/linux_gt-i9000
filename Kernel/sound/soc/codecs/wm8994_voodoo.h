@@ -31,6 +31,7 @@ bool debug_log(short unsigned int level);
 enum unified_path { HEADPHONES, RADIO_HEADPHONES, SPEAKER, MAIN_MICROPHONE };
 
 bool is_path(int unified_path);
+bool is_path_media_or_fm_no_call_no_record(void);
 unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec,
 				      unsigned int reg, unsigned int value);
 void voodoo_hook_fmradio_headset(void);

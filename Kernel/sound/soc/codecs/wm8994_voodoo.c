@@ -480,6 +480,21 @@ bool is_path(int unified_path)
 	return false;
 }
 
+bool is_path_media_or_fm_no_call_no_record() {
+
+	DECLARE_WM8994(codec);
+
+	if ((is_path(HEADPHONES)
+	     && (wm8994->codec_state & PLAYBACK_ACTIVE)
+	     && (wm8994->stream_state & PCM_STREAM_PLAYBACK)
+	     && !(wm8994->codec_state & CALL_ACTIVE)
+	     && (wm8994->rec_path == MIC_OFF)
+	    ) || is_path(RADIO_HEADPHONES))
+		return true;
+
+	return false;
+}
+
 #ifdef NEXUS_S
 void update_speaker_tuning(bool with_mute)
 {
@@ -627,12 +642,7 @@ unsigned short dac_direct_get_value(unsigned short val, bool can_reverse)
 {
 	DECLARE_WM8994(codec);
 
-	if ((is_path(HEADPHONES)
-	     && (wm8994->codec_state & PLAYBACK_ACTIVE)
-	     && (wm8994->stream_state & PCM_STREAM_PLAYBACK)
-	     && !(wm8994->codec_state & CALL_ACTIVE)
-	     && (wm8994->rec_path == MIC_OFF)
-	    ) || is_path(RADIO_HEADPHONES)) {
+	if (is_path_media_or_fm_no_call_no_record()) {
 
 		if (dac_direct) {
 			if (val == WM8994_DAC1L_TO_MIXOUTL)
@@ -667,14 +677,7 @@ unsigned short digital_gain_get_value(unsigned short val)
 	int aif_gain = 0xC0;
 	int i;
 
-	DECLARE_WM8994(codec);
-
-	if ((is_path(HEADPHONES)
-	     && (wm8994->codec_state & PLAYBACK_ACTIVE)
-	     && (wm8994->stream_state & PCM_STREAM_PLAYBACK)
-	     && !(wm8994->codec_state & CALL_ACTIVE)
-	     && (wm8994->rec_path == MIC_OFF)
-	    ) || is_path(RADIO_HEADPHONES)) {
+	if (is_path_media_or_fm_no_call_no_record()) {
 
 		if (digital_gain <= 0) {
 			// clear the actual DAC volume for this value
@@ -721,14 +724,7 @@ void update_headphone_eq(bool with_mute)
 	int k = 0;
 	int first_reg = WM8994_AIF1_DAC1_EQ_BAND_1_A;
 
-	DECLARE_WM8994(codec);
-
-	if (!(is_path(HEADPHONES)
-	      && (wm8994->codec_state & PLAYBACK_ACTIVE)
-	      && (wm8994->stream_state & PCM_STREAM_PLAYBACK)
-	      && !(wm8994->codec_state & CALL_ACTIVE)
-	      && (wm8994->rec_path == MIC_OFF)
-	    ) && !is_path(RADIO_HEADPHONES)) {
+	if (!is_path_media_or_fm_no_call_no_record()) {
 		// don't apply the EQ
 		return;
 	}
