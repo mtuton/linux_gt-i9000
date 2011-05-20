@@ -88,7 +88,7 @@ bool mono_downmix = false;
 // digital gain value in mili dB
 int digital_gain = 0;
 
-bool headphone_eq = true;
+bool headphone_eq = false;
 short eq_gains[5] = { 0, 0, 0, 0, 0 };
 short eq_bands[5] = { 3, 4, 4, 4, 3 };
 char eq_band_coef_names[][2] = { "A", "B", "C", "PG" };
