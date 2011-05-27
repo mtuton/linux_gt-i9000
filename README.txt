@@ -28,3 +28,9 @@ HOW TO BUILD KERNEL 2.6.32 FOR GT-I9000
 	drivers/scsi/scsi_wait_scan.ko
 	drivers/samsung/fm_si4709/Si4709_driver.ko
 	drivers/samsung/vibetonz/vibrator.ko
+
+How to insert your name in the kernel version displayed:
+--------------------------------------------------------
+
+You can do like that:
+export KBUILD_BUILD_VERSION="v06"
