@@ -332,12 +332,14 @@ static void gp2a_work_func_light(struct work_struct *work)
 	gprintk("cur_state = %d\n",cur_state);
 	gprintk("light_enable = %d\n",light_enable);
 #if 1 //add 150lux
-	if(adc >= 2100)
+	// if(adc >= 2100)
+	if(adc >= 1800)
 	{
 		level_state = LIGHT_LEVEL5;
 		buffering = 5;
 	}
-	else if(adc >= 1900 && adc < 2100)
+	// else if(adc >= 1900 && adc < 2100)
+	else if(adc >= 1600)
 	{
 		if(buffering == 5)
 		{	
@@ -351,13 +353,15 @@ static void gp2a_work_func_light(struct work_struct *work)
 		}
 	}
 
-	else if(adc >= 1800 && adc < 1900)
+	// else if(adc >= 1800 && adc < 1900)
+	else if(adc >= 1200)
 	{
 		level_state = LIGHT_LEVEL4;
 		buffering = 4;
 	}
 
-	else if(adc >= 1200 && adc < 1800)
+	// else if(adc >= 1200 && adc < 1800)
+	else if(adc >= 1000)
 	{
 		if((buffering == 4)||(buffering == 5))
 		{	
@@ -371,13 +375,15 @@ static void gp2a_work_func_light(struct work_struct *work)
 		}
 	}
 	
-	else if(adc >= 800 && adc < 1200)
+	// else if(adc >= 800 && adc < 1200)
+	else if(adc >= 700)
 	{
 		level_state = LIGHT_LEVEL3;
 		buffering = 3;
 	}
 
-	else if(adc >= 600 && adc < 800)
+	// else if(adc >= 600 && adc < 800)
+	else if(adc >= 500)
 	{
 		if((buffering == 3)||(buffering == 4)||(buffering == 5))
 		{	
@@ -391,13 +397,15 @@ static void gp2a_work_func_light(struct work_struct *work)
 		}
 	}
 
-	else if(adc >= 400 && adc < 600)
+	// else if(adc >= 400 && adc < 600)
+	else if(adc >= 70)
 	{
 		level_state = LIGHT_LEVEL2;
 		buffering = 2;
 	}
 	
-	else if(adc >= 250 && adc < 400)
+	// else if(adc >= 250 && adc < 400)
+	else if(adc >= 50)
 	{
 		if((buffering == 2)||(buffering == 3)||(buffering == 4)||(buffering == 5))
 		{	
@@ -411,7 +419,8 @@ static void gp2a_work_func_light(struct work_struct *work)
 		}
 	}
 
-	else if(adc < 250)
+	// else if(adc < 250)
+	else
 	{
 		level_state = LIGHT_LEVEL1;
 		buffering = 1;
