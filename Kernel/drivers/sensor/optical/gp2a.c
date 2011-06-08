@@ -332,14 +332,21 @@ static void gp2a_work_func_light(struct work_struct *work)
 	gprintk("cur_state = %d\n",cur_state);
 	gprintk("light_enable = %d\n",light_enable);
 #if 1 //add 150lux
-	// if(adc >= 2100)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	if(adc >= 1800)
+#else
+	if(adc >= 2100)
+#endif
 	{
 		level_state = LIGHT_LEVEL5;
 		buffering = 5;
 	}
 	// else if(adc >= 1900 && adc < 2100)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	else if(adc >= 1600)
+#else
+	else if(adc >= 1900 && adc < 2100)	
+#endif
 	{
 		if(buffering == 5)
 		{	
@@ -353,15 +360,21 @@ static void gp2a_work_func_light(struct work_struct *work)
 		}
 	}
 
-	// else if(adc >= 1800 && adc < 1900)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	else if(adc >= 1200)
+#else
+	else if(adc >= 1800 && adc < 1900)
+#endif
 	{
 		level_state = LIGHT_LEVEL4;
 		buffering = 4;
 	}
 
-	// else if(adc >= 1200 && adc < 1800)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	else if(adc >= 1000)
+#else
+	else if(adc >= 1200 && adc < 1800)
+#endif
 	{
 		if((buffering == 4)||(buffering == 5))
 		{	
@@ -375,15 +388,21 @@ static void gp2a_work_func_light(struct work_struct *work)
 		}
 	}
 	
-	// else if(adc >= 800 && adc < 1200)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	else if(adc >= 700)
+#else
+	else if(adc >= 800 && adc < 1200)
+#endif
 	{
 		level_state = LIGHT_LEVEL3;
 		buffering = 3;
 	}
 
-	// else if(adc >= 600 && adc < 800)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	else if(adc >= 500)
+#else
+	else if(adc >= 600 && adc < 800)
+#endif
 	{
 		if((buffering == 3)||(buffering == 4)||(buffering == 5))
 		{	
@@ -397,15 +416,21 @@ static void gp2a_work_func_light(struct work_struct *work)
 		}
 	}
 
-	// else if(adc >= 400 && adc < 600)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	else if(adc >= 70)
+#else
+	else if(adc >= 400 && adc < 600)
+#endif
 	{
 		level_state = LIGHT_LEVEL2;
 		buffering = 2;
 	}
 	
-	// else if(adc >= 250 && adc < 400)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	else if(adc >= 50)
+#else
+	else if(adc >= 250 && adc < 400)
+#endif
 	{
 		if((buffering == 2)||(buffering == 3)||(buffering == 4)||(buffering == 5))
 		{	
@@ -419,8 +444,11 @@ static void gp2a_work_func_light(struct work_struct *work)
 		}
 	}
 
-	// else if(adc < 250)
+#ifdef HC_BRIGHTNESS_ADJUSTMENT
 	else
+#else
+	else if(adc < 250)
+#endif
 	{
 		level_state = LIGHT_LEVEL1;
 		buffering = 1;

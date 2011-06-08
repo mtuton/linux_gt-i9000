@@ -24,3 +24,9 @@ config GP2A_MODE_B
 	default n
 	help
 	This option enables proximity mode B
+
+config HC_BRIGHTNESS_ADJUSTMENT
+	bool "Apply hardcore's brightless mod"
+	default n
+	help
+	This option enables the brightness mod which reduces the brightness of the screen in dark environments
