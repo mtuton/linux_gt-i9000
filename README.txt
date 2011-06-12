@@ -3,6 +3,9 @@ Voodoo additions:
 Voodoo come with a custom defconfig, you can do:
 make aries_eur_voodoo_all_defconfig
 
+Mic specific configuration
+make aries_mic_defconfig
+
 
 Now the original Samsung README:
 ________________________________
