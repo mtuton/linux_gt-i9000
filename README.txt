@@ -4,7 +4,7 @@ HOW TO BUILD KERNEL 2.6.35 FOR GT-I9000
 
 2. Extract kernel source and move into the top directory.
 
-3. Execute 'make aries_eur_defconfig'.
+3. Execute 'make aries_eur_defconfig'. OR 'make aries_mic_defconfig'
 
 4. Execute 'make' or 'make -j<n>' where '<n>' is the number of multiple jobs to be invoked simultaneously.
 
@@ -24,7 +24,7 @@ How to match the correct local version in order to load prebuilt modules:
 In your build script, set:
 
 For JVB:
-export LOCALVERSION="-I9000XWJVB-CL118186"
+export LOCALVERSION="-I9000XWJVP-CL118186"
 
 You'll need to match the LOCALVERSION to the one required by binary
 kernel modules coming with the associated initramfs.
