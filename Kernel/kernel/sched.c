@@ -11006,3 +11006,6 @@ void synchronize_sched_expedited(void)
 EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
 
 #endif /* #else #ifndef CONFIG_SMP */
+
+EXPORT_SYMBOL_GPL(nr_running);
+
