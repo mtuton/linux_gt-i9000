@@ -210,4 +210,31 @@ config CPU_FREQ_GOV_SMARTASS
 	  Designed like 'interactive', but spend more time in the lower
 	  frequencies. More adapted to mobile devices.
 
+config SMARTASS_SLEEP_WAKEUP_FREQ
+	int "Sleep Wakeup Freq"
+	default 999999
+	depends on CPU_FREQ_GOV_SMARTASS
+	help
+	  The frequency to set when waking up from sleep.
+	  When SMARTASS_SLEEP_MAX_FREQ is set to zero this will have no effect.
+
+config SMARTASS_SLEEP_MAX_FREQ
+	int "Sleep max frequency"
+	default 352000
+	depends on CPU_FREQ_GOV_SMARTASS
+	help
+	  When >0 the frequency when suspended will be capped
+	  by this frequency. Also will wake up at max frequency of policy
+	  to minimize wakeup issues.
+	  Set to 0 to disable this behavior.
+
+config SMARTASS_AWAKE_MIN_FREQ`
+	int "Awake min frequency"
+	default 518400
+	depends on CPU_FREQ_GOV_SMARTASS
+	help
+	  When >0 the frequency when not suspended will not
+	  go below this frequency.
+	  Set to 0 to disable this behavior.
+
 endif	# CPU_FREQ

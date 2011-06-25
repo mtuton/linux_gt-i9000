@@ -2933,6 +2933,7 @@ unsigned long nr_running(void)
 
 	return sum;
 }
+EXPORT_SYMBOL_GPL(nr_running);
 
 unsigned long nr_uninterruptible(void)
 {
@@ -11006,6 +11007,3 @@ void synchronize_sched_expedited(void)
 EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
 
 #endif /* #else #ifndef CONFIG_SMP */
-
-EXPORT_SYMBOL_GPL(nr_running);
-
