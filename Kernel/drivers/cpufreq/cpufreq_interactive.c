@@ -68,8 +68,11 @@ static unsigned int suspendfreq = DEFAULT_SUSPEND_FREQ;
 #define DEFAULT_MIN_SAMPLE_TIME 50000;
 static unsigned long min_sample_time;
 
-#define FREQ_THRESHOLD 1800000;
-#define RESUME_SPEED 1408000;
+//#define FREQ_THRESHOLD 1800000;
+//#define RESUME_SPEED 1408000;
+#define FREQ_THRESHOLD CONFIG_INTERACTIVE_FREQ_THRESHOLD;
+#define RESUME_SPEED CONFIG_INTERACTIVE_RESUME_FREQ;
+
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event);
@@ -202,9 +205,9 @@ static unsigned int cpufreq_interactive_calc_freq(unsigned int cpu)
 static void cpufreq_interactive_freq_change_time_work(struct work_struct *work)
 {
 	unsigned int cpu;
-	unsigned int newtarget;
+	//unsigned int newtarget;
 	cpumask_t tmp_mask = work_cpumask;
-	newtarget = FREQ_THRESHOLD;
+	//newtarget = FREQ_THRESHOLD;
 
 	for_each_cpu(cpu, tmp_mask) {
 
@@ -215,7 +218,8 @@ static void cpufreq_interactive_freq_change_time_work(struct work_struct *work)
 			}
 
 //			__cpufreq_driver_target(policy, target_freq, CPUFREQ_RELATION_H);
-			__cpufreq_driver_target(policy, newtarget, CPUFREQ_RELATION_H);
+			//__cpufreq_driver_target(policy, newtarget, CPUFREQ_RELATION_H);
+			__cpufreq_driver_target(policy, policy->max, CPUFREQ_RELATION_H);
 		} else {
 		  target_freq = cpufreq_interactive_calc_freq(cpu);
 		  if (target_freq != policy->cur) {
@@ -265,14 +269,15 @@ static struct attribute_group interactive_attr_group = {
 
 static void interactive_suspend(int suspend)
 {
-	unsigned int max_speed;
+	//unsigned int max_speed;
 
-	max_speed = RESUME_SPEED;
+	//max_speed = RESUME_SPEED;
 
 	if (!enabled) return;
         if (!suspend) { // resume at max speed:
 		suspended = 0;
-                __cpufreq_driver_target(policy, max_speed, CPUFREQ_RELATION_L);
+                //__cpufreq_driver_target(policy, max_speed, CPUFREQ_RELATION_L);
+		__cpufreq_driver_target(policy, policy->max, CPUFREQ_RELATION_L);
                 pr_info("[imoseyon] interactive awake at %d\n", policy->cur);
         } else {
 		suspended = 1;

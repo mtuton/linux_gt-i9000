@@ -218,9 +218,23 @@ config CPU_FREQ_GOV_INTERACTIVE
 	  Designed for low latency burst workloads. Scaling it done when coming
 	  out of idle instead of polling.
 
+#config INTERACTIVE_RESUME_FREQ
+#	int "Sleep wakeup frequency"
+#	default 1000000
+#	depends on CPU_FREQ_GOV_INTERACTIVE
+#	help
+#	  The maximum frequency when resuming. 
+
+#config INTERACTIVE_FREQ_THRESHOLD
+#	int "Awake max frequency"
+#	default 1000000
+#	depends on CPU_FREQ_GOV_INTERACTIVE
+#	help
+#	  The maximum frequency when awake. 
+
 config INTERACTIVE_SUSPEND_FREQ
-	int "Max Suspend Freq"
-	default 5000000
+	int "Sleep max frequency"
+	default 518400
 	depends on CPU_FREQ_GOV_INTERACTIVE
 	help
 	  The maximum frequency when suspended. 
