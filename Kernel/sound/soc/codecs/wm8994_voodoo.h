@@ -25,6 +25,10 @@
 #define M110S
 #endif
 
+#ifdef CONFIG_MACH_SAMSUNG_VARIATION_TEGRA
+#define GALAXY_TAB_TEGRA
+#endif
+
 #ifdef CONFIG_TDMB_T3700
 #define M110S
 #endif

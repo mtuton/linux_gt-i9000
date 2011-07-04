@@ -79,7 +79,9 @@ bool enable = false;
 
 bool dac_osr128 = true;
 bool adc_osr128 = false;
+#ifndef GALAXY_TAB_TEGRA
 bool fll_tuning = true;
+#endif
 bool dac_direct = true;
 bool mono_downmix = false;
 
@@ -218,9 +220,9 @@ void update_hpvol(bool with_fade)
 	    || (wm8994->codec_state & CALL_ACTIVE))
 		return;
 
-	bypass_write_hook = true;
 
 	if (!with_fade) {
+		bypass_write_hook = true;
 		write_hpvol(hpvol(0), hpvol(1));
 		bypass_write_hook = false;
 		return;
@@ -258,13 +260,14 @@ void update_hpvol(bool with_fade)
 			printk("Voodoo sound: volume: %hu\n",
 			       (hpvol(0) - steps));
 
+		bypass_write_hook = true;
 		write_hpvol(hpvol(0) - steps, hpvol(1) - steps);
+		bypass_write_hook = false;
 
 		if (steps != 0)
 			udelay(1000);
 	}
 
-	bypass_write_hook = false;
 }
 #endif
 
@@ -492,6 +495,10 @@ bool is_path(int unified_path)
 		return (wm8994->cur_path == HP);
 #endif
 #else
+#ifdef GALAXY_TAB_TEGRA
+		return (wm8994->cur_path == HP
+			|| wm8994->cur_path == HP_NO_MIC);
+#else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 		return (wm8994->cur_path == HP
 			|| wm8994->cur_path == HP_NO_MIC
@@ -499,6 +506,7 @@ bool is_path(int unified_path)
 #else
 		return (wm8994->cur_path == HP
 			|| wm8994->fmradio_path == FMR_HP);
+#endif
 #endif
 #endif
 #endif
@@ -512,12 +520,16 @@ bool is_path(int unified_path)
 #ifdef M110S
 		return false;
 #else
+#ifdef GALAXY_TAB_TEGRA
+		return false;
+#else
 #ifdef GALAXY_TAB
 		return (wm8994->codec_state & FMRADIO_ACTIVE)
 		    && (wm8994->fmradio_path == FMR_HP);
 #else
 		return (wm8994->codec_state & FMRADIO_ACTIVE)
 		    && (wm8994->fmradio_path == FMR_HP);
+#endif
 #endif
 #endif
 #endif
@@ -636,6 +648,7 @@ void update_osr128(bool with_mute)
 	bypass_write_hook = false;
 }
 
+#ifndef GALAXY_TAB_TEGRA
 unsigned short fll_tuning_get_value(unsigned short val)
 {
 	val = (val >> WM8994_FLL1_GAIN_WIDTH << WM8994_FLL1_GAIN_WIDTH);
@@ -653,6 +666,7 @@ void update_fll_tuning(bool with_mute)
 	wm8994_write(codec, WM8994_FLL1_CONTROL_4, val);
 	bypass_write_hook = false;
 }
+#endif
 
 unsigned short mono_downmix_get_value(unsigned short val, bool can_reverse)
 {
@@ -1018,10 +1032,12 @@ DECLARE_BOOL_STORE_UPDATE_WITH_MUTE(adc_osr128,
 				    update_osr128,
 				    false);
 
+#ifndef GALAXY_TAB_TEGRA
 DECLARE_BOOL_SHOW(fll_tuning);
 DECLARE_BOOL_STORE_UPDATE_WITH_MUTE(fll_tuning,
 				    update_fll_tuning,
 				    false);
+#endif
 
 DECLARE_BOOL_SHOW(mono_downmix);
 DECLARE_BOOL_STORE_UPDATE_WITH_MUTE(mono_downmix,
@@ -1352,9 +1368,11 @@ static DEVICE_ATTR(adc_osr128, S_IRUGO | S_IWUGO,
 		   adc_osr128_show,
 		   adc_osr128_store);
 
+#ifndef GALAXY_TAB_TEGRA
 static DEVICE_ATTR(fll_tuning, S_IRUGO | S_IWUGO,
 		   fll_tuning_show,
 		   fll_tuning_store);
+#endif
 
 static DEVICE_ATTR(dac_direct, S_IRUGO | S_IWUGO,
 		   dac_direct_show,
@@ -1448,7 +1466,9 @@ static struct attribute *voodoo_sound_attributes[] = {
 #endif
 	&dev_attr_dac_osr128.attr,
 	&dev_attr_adc_osr128.attr,
+#ifndef GALAXY_TAB_TEGRA
 	&dev_attr_fll_tuning.attr,
+#endif
 	&dev_attr_dac_direct.attr,
 	&dev_attr_digital_gain.attr,
 	&dev_attr_headphone_eq.attr,
@@ -1637,9 +1657,11 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		if (reg == WM8994_OVERSAMPLING)
 			value = osr128_get_value(value);
 
+#ifndef GALAXY_TAB_TEGRA
 		// global Anti-Jitter tuning
 		if (reg == WM8994_FLL1_CONTROL_4)
 			value = fll_tuning_get_value(value);
+#endif
 
 		// global Mono downmix tuning
 		if (reg == WM8994_AIF1_DAC1_FILTERS_1
@@ -1684,29 +1706,29 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 		       "codec_state=%u, stream_state=%u, "
 		       "cur_path=%i, rec_path=%i, "
-#ifndef M110S
+#if !defined(M110S) && !defined(GALAXY_TAB_TEGRA)
 		       "fmradio_path=%i, fmr_mix_path=%i, "
 #endif
 		       "input_source=%i, "
-#ifndef M110S
+#if !defined(M110S) && !defined(GALAXY_TAB_TEGRA)
 		       "output_source=%i, "
 #endif
 		       "power_state=%i\n",
 		       reg, value,
 		       wm8994->codec_state, wm8994->stream_state,
-#ifndef M110S
+#if !defined(M110S) && !defined(GALAXY_TAB_TEGRA)
 		       wm8994->fmradio_path, wm8994->fmr_mix_path,
 #endif
 		       wm8994->cur_path, wm8994->rec_path,
 		       wm8994->input_source,
-#ifndef M110S
+#if !defined(M110S) && !defined(GALAXY_TAB_TEGRA)
 		       wm8994->output_source,
 #endif
 		       wm8994->power_state);
 #else
 		       "codec_state=%u, stream_state=%u, "
 		       "cur_path=%i, rec_path=%i, "
-#ifndef M110S
+#if !defined(M110S) && !defined(GALAXY_TAB_TEGRA)
 		       "fmradio_path=%i, fmr_mix_path=%i, "
 #endif
 #ifdef CONFIG_S5PC110_KEPLER_BOARD
@@ -1715,14 +1737,14 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		       "Fac_SUB_MIC_state=%i, TTY_state=%i, "
 #endif
 		       "power_state=%i, "
-#ifndef M110S
+#if !defined(M110S) && !defined(GALAXY_TAB_TEGRA)
 		       "recognition_active=%i, ringtone_active=%i"
 #endif
 		       "\n",
 		       reg, value,
 		       wm8994->codec_state, wm8994->stream_state,
 		       wm8994->cur_path, wm8994->rec_path,
-#ifndef M110S
+#if !defined(M110S) && !defined(GALAXY_TAB_TEGRA)
 		       wm8994->fmradio_path, wm8994->fmr_mix_path,
 #endif
 #ifdef CONFIG_S5PC110_KEPLER_BOARD
@@ -1731,7 +1753,7 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		       wm8994->Fac_SUB_MIC_state, wm8994->TTY_state,
 #endif
 		       wm8994->power_state
-#ifndef M110S
+#if !defined(M110S) && !defined(GALAXY_TAB_TEGRA)
 		       ,wm8994->recognition_active,
 		       wm8994->ringtone_active
 #endif
