@@ -55,7 +55,7 @@ short unsigned int debug_log_level = LOG_OFF;
 
 #ifdef CONFIG_SND_VOODOO_HP_LEVEL_CONTROL
 unsigned short hp_level[2] = { CONFIG_SND_VOODOO_HP_LEVEL,
-			       CONFIG_SND_VOODOO_HP_LEVEL };;
+			       CONFIG_SND_VOODOO_HP_LEVEL };
 #endif
 
 #ifdef CONFIG_SND_VOODOO_FM
@@ -548,7 +548,8 @@ bool is_path(int unified_path)
 	return false;
 }
 
-bool is_path_media_or_fm_no_call_no_record() {
+bool is_path_media_or_fm_no_call_no_record()
+{
 
 	DECLARE_WM8994(codec);
 
@@ -716,8 +717,7 @@ unsigned short dac_direct_get_value(unsigned short val, bool can_reverse)
 			if (val == WM8994_DAC1L_TO_MIXOUTL)
 				return WM8994_DAC1L_TO_HPOUT1L;
 		} else {
-			if (val == WM8994_DAC1L_TO_HPOUT1L
-			    && can_reverse)
+			if (val == WM8994_DAC1L_TO_HPOUT1L && can_reverse)
 				return WM8994_DAC1L_TO_MIXOUTL;
 		}
 	}
@@ -800,8 +800,8 @@ void update_headphone_eq(bool with_mute)
 
 	if (debug_log(LOG_INFOS))
 		printk("Voodoo sound: EQ gains (dB): %hd, %hd, %hd, %hd, %hd\n",
-		        eq_gains[0], eq_gains[1], eq_gains[2],
-		        eq_gains[3], eq_gains[4]);
+		       eq_gains[0], eq_gains[1], eq_gains[2],
+		       eq_gains[3], eq_gains[4]);
 
 	gains_1 =
 	    ((eq_gains[0] + 12) << WM8994_AIF1DAC1_EQ_B1_GAIN_SHIFT) |
@@ -1153,12 +1153,12 @@ static ssize_t headphone_eq_bands_values_store(struct device *dev,
 		for (i = 0; i < ARRAY_SIZE(eq_band_coef_names); i++) {
 			// loop through band coefficient letters
 			if (strncmp(eq_band_coef_names[i], coef_name, 2) == 0) {
-				if (eq_bands[band-1] == 3 && i == 3)
+				if (eq_bands[band - 1] == 3 && i == 3)
 					// deal with high and low shelves
-					eq_band_values[band-1][2] = val;
+					eq_band_values[band - 1][2] = val;
 				else
 					// parametric bands
-					eq_band_values[band-1][i] = val;
+					eq_band_values[band - 1][i] = val;
 
 				if (debug_log(LOG_INFOS))
 					printk("Voodoo sound: read EQ from "
@@ -1291,7 +1291,7 @@ static ssize_t store_wm8994_write(struct device *dev,
 
 	while (sscanf(buf, "%hx %hx%n", &reg, &val, &bytes_read) == 2) {
 		buf += bytes_read;
-		if (debug_log(LOG_INFOS));
+		if (debug_log(LOG_INFOS))
 			printk("Voodoo sound: read from sysfs: %X, %X\n",
 			       reg, val);
 
@@ -1761,7 +1761,7 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		       ,wm8994->recognition_active,
 		       wm8994->ringtone_active
 #endif
-		       );
+		);
 #endif
 #endif
 	return value;
