@@ -208,7 +208,7 @@ void update_hpvol(bool with_fade)
 	unsigned short val;
 	unsigned short i;
 	short steps;
-	unsigned short hp_level_old[2];
+	int hp_level_old[2];
 	unsigned short hp_level_registers[2] = { WM8994_LEFT_OUTPUT_VOLUME,
 						 WM8994_RIGHT_OUTPUT_VOLUME };
 
@@ -236,9 +236,12 @@ void update_hpvol(bool with_fade)
 		val &= ~(WM8994_HPOUT1L_MUTE_N_MASK);
 		hp_level_old[i] = val + (digital_gain / 1000);
 
+		if (hp_level_old[i] < 0)
+			hp_level_old[i] = 0;
+
 		if (debug_log(LOG_INFOS))
-			printk("Voodoo sound: previous hp_level[%hu]: %hu\n",
-				i, val);
+			printk("Voodoo sound: previous hp_level[%hu]: %d\n",
+			       i, hp_level_old[i]);
 	}
 
 	// calculate number of steps for volume fade
@@ -756,8 +759,9 @@ unsigned short digital_gain_get_value(unsigned short val)
 
 			if (debug_log(LOG_INFOS))
 				printk("Voodoo sound: digital gain: %d mdB, "
-				       "steps: %d, real AIF gain: %d mdB\n",
-				digital_gain, i, i * step);
+				       "%d mdB steps: %d, "
+				       "real AIF gain: %d mdB\n",
+				       digital_gain, step, i, i * step);
 		}
 	}
 
@@ -921,8 +925,8 @@ void apply_saturation_prevention_drc()
 
 		if (debug_log(LOG_INFOS))
 			printk("Voodoo sound: digital gain: %d mdB, "
-			       "steps: %d, real DRC gain: %d mdB\n",
-			digital_gain, i, i * step);
+			       "%d mdB steps: %d, real DRC gain: %d mdB\n",
+			       digital_gain, step, i, i * step);
 
 	}
 	wm8994_write(codec, WM8994_AIF1_DRC1_4, val);
