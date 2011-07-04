@@ -527,8 +527,7 @@ bool is_path(int unified_path)
 		return false;
 #else
 #ifdef GALAXY_TAB
-		return (wm8994->codec_state & FMRADIO_ACTIVE)
-		    && (wm8994->fmradio_path == FMR_HP);
+		return false;
 #else
 		return (wm8994->codec_state & FMRADIO_ACTIVE)
 		    && (wm8994->fmradio_path == FMR_HP);
