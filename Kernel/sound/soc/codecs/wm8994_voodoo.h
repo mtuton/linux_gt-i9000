@@ -62,5 +62,6 @@ void update_mono_downmix(bool with_mute);
 void update_dac_direct(bool with_mute);
 void update_digital_gain(bool with_mute);
 void update_stereo_expansion(bool with_mute);
-void update_headphone_eq(bool with_mute);
+void update_headphone_eq(bool update_bands);
+void update_headphone_eq_bands(void);
 void update_enable(void);

@@ -147,8 +147,11 @@ static ssize_t headphone_eq_b##band##_gain_store(struct device *dev,	       \
 	short new_gain;							       \
 	if (sscanf(buf, "%hd", &new_gain) == 1) {			       \
 		if (new_gain >= -12 && new_gain <= 12) {		       \
-			eq_gains[band-1] = new_gain;			       \
-			update_headphone_eq(false);			       \
+			smooth_apply_eq_band_gain(band - 1,		       \
+						  eq_gains[band - 1],	       \
+						  new_gain,		       \
+						  headphone_eq);	       \
+			eq_gains[band - 1] = new_gain;			       \
 		}							       \
 	}								       \
 	return size;							       \
@@ -783,14 +786,10 @@ void update_digital_gain(bool with_mute)
 	bypass_write_hook = false;
 }
 
-void update_headphone_eq(bool with_mute)
+void update_headphone_eq(bool update_bands)
 {
 	int gains_1;
 	int gains_2;
-	int i;
-	int j;
-	int k = 0;
-	int first_reg = WM8994_AIF1_DAC1_EQ_BAND_1_A;
 
 	if (!is_path_media_or_fm_no_call_no_record()) {
 		// don't apply the EQ
@@ -819,6 +818,17 @@ void update_headphone_eq(bool with_mute)
 	if (!headphone_eq)
 		return;
 
+	if (update_bands)
+		update_headphone_eq_bands();
+}
+
+void update_headphone_eq_bands()
+{
+	int i;
+	int j;
+	int k = 0;
+	int first_reg = WM8994_AIF1_DAC1_EQ_BAND_1_A;
+
 	for (i = 0; i < ARRAY_SIZE(eq_band_values); i++) {
 		if (debug_log(LOG_INFOS))
 			printk("Voodoo sound: send EQ Band %d\n", i + 1);
@@ -828,6 +838,34 @@ void update_headphone_eq(bool with_mute)
 				     first_reg + k, eq_band_values[i][j]);
 			k++;
 		}
+	}
+}
+
+void smooth_apply_eq_band_gain(int band, int start, int end, bool current_state)
+{
+	if (debug_log(LOG_INFOS))
+		printk("Voodoo sound: EQ smooth transition for Band %d "
+		       "from %d to %d\n", band + 1, start, end);
+
+	if (start == end) {
+		if (end != 0)
+			update_headphone_eq(true);
+		else
+			update_headphone_eq(false);
+		return;
+	}
+
+	if (current_state)
+		update_headphone_eq_bands();
+
+	while (start != end) {
+		if (start < end)
+			start++;
+		else
+			start--;
+
+		eq_gains[band] = start;
+		update_headphone_eq(false);
 	}
 }
 
@@ -880,6 +918,9 @@ void apply_saturation_prevention_drc()
 	      || headphone_eq
 	      || digital_gain >= 0))
 		return;
+
+	if (debug_log(LOG_INFOS))
+		printk("Voodoo sound: apply saturation prevention DRC\n");
 
 	// configure the DRC to avoid saturation: not actually compress signal
 	// gain is unmodified. Should affect only what's higher than 0 dBFS
@@ -1087,9 +1128,41 @@ static ssize_t digital_gain_store(struct device *dev,
 }
 
 DECLARE_BOOL_SHOW(headphone_eq);
-DECLARE_BOOL_STORE_UPDATE_WITH_MUTE(headphone_eq,
-				    update_headphone_eq,
-				    false);
+static ssize_t headphone_eq_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t size)
+{
+	unsigned short state;
+	bool current_state;
+	int i;
+	short eq_gains_copy[ARRAY_SIZE(eq_gains)];
+
+	if (sscanf(buf, "%hu", &state) == 1) {
+		current_state = state == 0 ? false : true;
+		if (debug_log(LOG_INFOS))
+			printk("Voodoo sound: EQ activation: %u\n", state);
+
+		if (current_state) {
+			// fade from 0dB each EQ band
+			headphone_eq = current_state;
+			for (i = 0; i < ARRAY_SIZE(eq_bands); i++)
+				smooth_apply_eq_band_gain(i, 0, eq_gains[i],
+							  current_state);
+		} else {
+			// fade to 0dB each EQ band
+			for (i = 0; i < ARRAY_SIZE(eq_bands); i++) {
+				eq_gains_copy[i] = eq_gains[i];
+				smooth_apply_eq_band_gain(i, eq_gains[i], 0,
+							  current_state);
+			}
+			// restore original gains in driver memory not codec
+			for (i = 0; i < ARRAY_SIZE(eq_bands); i++)
+				eq_gains[i] = eq_gains_copy[i];
+			headphone_eq = current_state;
+		}
+	}
+	return size;
+}
 
 DECLARE_EQ_GAIN_SHOW(1);
 DECLARE_EQ_GAIN_STORE(1);
@@ -1688,7 +1761,7 @@ unsigned int voodoo_hook_wm8994_write(struct snd_soc_codec *codec_,
 		    || reg == WM8994_AIF2_DAC_FILTERS_1) {
 			bypass_write_hook = true;
 			apply_saturation_prevention_drc();
-			update_headphone_eq(false);
+			update_headphone_eq(true);
 			update_stereo_expansion(false);
 			bypass_write_hook = false;
 		}
