@@ -17,7 +17,7 @@
 #define NEXUS_S
 #endif
 
-#ifdef CONFIG_FB_S3C_AMS701KA
+#if defined(CONFIG_FB_S3C_AMS701KA) || defined(CONFIG_KOR_MODEL_M180S)
 #define GALAXY_TAB
 #endif
 

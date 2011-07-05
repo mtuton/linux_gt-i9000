@@ -17,13 +17,13 @@
 #include "wm8994_voodoo.h"
 
 #ifndef MODULE
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35) && !defined(GALAXY_TAB)
 #include "wm8994_samsung.h"
 #else
 #include "wm8994.h"
 #endif
 #else
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35) && !defined(GALAXY_TAB)
 #include "../wm8994_samsung.h"
 #else
 #include "../wm8994.h"
